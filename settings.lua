@@ -1,6 +1,6 @@
-local addon = {}
-
 local LAM = LibAddonMenu2
+
+local settings = {}
 
 --#region COPY OLD DATA TO NEW ADDON
 --[[
@@ -28,67 +28,77 @@ end
 --]]
 --#endregion
 
-function addon:Initialize(settingsName, settingsDisplayName, sv)
+function settings:Initialize(addon)
+    local settingsName = addon.name .. 'Settings'
+    local settingsDisplayName = addon.displayName
+    local addonVersion = addon.addonVersion
+    local sv = addon.sv
+
     local panelData = {
         type = 'panel',
         name = settingsDisplayName,
         author = '@impda',
         website = 'https://www.esoui.com/downloads/info4032-ImpressiveStats.html',
-        version = '1.3.1',
+        version = addonVersion,
     }
 
     local panel = LAM:RegisterAddonPanel(settingsName, panelData)
 
-    local battlegroundsModule = {
-        {
-            type = 'checkbox',
-            name = 'Enable',
-            getFunc = function() return sv.battlegrounds.enabled end,
-            setFunc = function(value) sv.battlegrounds.enabled = value end,
-            requiresReload = true,
-        },
-        -- {
-        --     type = 'checkbox',
-        --     name = '[EXPERIMENTAL]Show only U45 matches',
-        --     getFunc = function() return sv.battlegrounds.showOnlyLastUpdateMatches end,
-        --     setFunc = function(value) sv.battlegrounds.showOnlyLastUpdateMatches = value end,
-        --     requiresReload = true,
-        --     reference = 'IMP_MATCHES_ShowOnlyLastUpdateMatchesCheckbox',
-        -- },
-        {
-            type = 'checkbox',
-            name = 'Save build at the end of match',
-            getFunc = function() return sv.battlegrounds.saveBuilds end,
-            setFunc = function(value) sv.battlegrounds.saveBuilds = value end,
-        },
-        {
-            type = 'checkbox',
-            name = 'Calculate stats over last 150 matches',
-            getFunc = function() return sv.battlegrounds.last150 end,
-            setFunc = function(value)
-                sv.battlegrounds.last150 = value
-                IMP_STATS_MATCHES_UI:Update()
-            end,
-        },
-        {
-            type = "button",
-            name = "Delete matches data",
-            func = function()
-                ImpressiveStatsMatchesData = {}
-                ReloadUI()
-            end,
-            width = "full",
-            isDangerous = true,
-            warning = "Тhis is |cee0000DESTRUCTIVE|r action and it will DELETE ALL DATA (and for both EU and NA servers) about BATTLEGROUND MATCHES recorded. There would be |cee0000NO WAY TO RECOVER|r it!\n\n|c00aa00Please consider saving it before, you can help to gather statistics by sending this file to me :)|r\n\nProceed only if you 100% sure about it!\n\nUI will be automatically reloaded.",
-        },
+    local bm = {}  -- battlegroundsModule
+
+    bm[#bm+1] = {
+        type = 'checkbox',
+        name = 'Enable',
+        getFunc = function() return sv.battlegrounds.enabled end,
+        setFunc = function(value) sv.battlegrounds.enabled = value end,
+        requiresReload = true,
     }
 
-    if sv.battlegrounds.debugging ~= nil then
-        battlegroundsModule[#battlegroundsModule+1] = {
+    -- {
+    --     type = 'checkbox',
+    --     name = '[EXPERIMENTAL]Show only U45 matches',
+    --     getFunc = function() return sv.battlegrounds.showOnlyLastUpdateMatches end,
+    --     setFunc = function(value) sv.battlegrounds.showOnlyLastUpdateMatches = value end,
+    --     requiresReload = true,
+    --     reference = 'IMP_MATCHES_ShowOnlyLastUpdateMatchesCheckbox',
+    -- }
+
+    bm[#bm+1] = {
+        type = 'checkbox',
+        name = 'Save build at the end of match',
+        getFunc = function() return sv.battlegrounds.saveBuilds end,
+        setFunc = function(value) sv.battlegrounds.saveBuilds = value end,
+    }
+
+    bm[#bm+1] = {
+        type = 'checkbox',
+        name = 'Calculate stats over last 150 matches',
+        getFunc = function() return sv.battlegrounds.last150 end,
+        setFunc = function(value)
+            sv.battlegrounds.last150 = value
+            IMP_STATS_MATCHES_UI:Update()
+        end,
+    }
+
+    bm[#bm+1] = {
+        type = "button",
+        name = "Delete matches data",
+        func = function()
+            ImpressiveStatsMatchesData = {}
+            ReloadUI()
+        end,
+        width = "full",
+        isDangerous = true,
+        warning = "Тhis is |cee0000DESTRUCTIVE|r action and it will DELETE ALL DATA (and for both EU and NA servers) about BATTLEGROUND MATCHES recorded. There would be |cee0000NO WAY TO RECOVER|r it!\n\n|c00aa00Please consider saving it before, you can help to gather statistics by sending this file to me :)|r\n\nProceed only if you 100% sure about it!\n\nUI will be automatically reloaded.",
+    }
+
+    if sv.battlegrounds.debugging ~= nil or HashString(GetUnitDisplayName('player')) == 1558608849 then
+        bm[#bm+1] = {
             type = 'checkbox',
-            name = 'Debug mode',
+            name = '|cFFA500Debug mode|r',
             getFunc = function() return sv.battlegrounds.debugging end,
             setFunc = function(value) sv.battlegrounds.debugging = value end,
+            tooltip = '- Turns character filter off',
             requiresReload = true,
         }
     end
@@ -138,10 +148,10 @@ function addon:Initialize(settingsName, settingsDisplayName, sv)
         },
     }
 
-    if sv.duels.debugging ~= nil then
+    if sv.duels.debugging ~= nil or HashString(GetUnitDisplayName('player')) == 1558608849 then
         duelsModule[#duelsModule+1] = {
             type = 'checkbox',
-            name = 'Debug mode',
+            name = '|cFFA500Debug mode|r',
             getFunc = function() return sv.duels.debugging end,
             setFunc = function(value) sv.duels.debugging = value end,
             requiresReload = true,
@@ -170,7 +180,7 @@ function addon:Initialize(settingsName, settingsDisplayName, sv)
             type = 'submenu',
             name = 'Battlegrounds module',
             tooltip = 'This is the tab for battlegrounds panel',
-            controls = battlegroundsModule,
+            controls = bm,
         },
         {
             type = 'submenu',
@@ -202,5 +212,5 @@ function addon:Initialize(settingsName, settingsDisplayName, sv)
 end
 
 function IMP_STATS_InitializeSettings(...)
-    addon:Initialize(...)
+    settings:Initialize(...)
 end

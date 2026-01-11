@@ -115,6 +115,89 @@ end
 --#endregion
 
 --#region IMP STATS DUELS UI
+local SORTABLE_HEADERS = {
+    ['Index'] = 'index',
+    ['Duration'] = 'duration',
+    ['DamageDone'] = 'damageDone',
+    ['DamageTaken'] = 'damageTaken',
+    ['HealingTaken'] = 'healingTaken',
+    ['DamageShielded'] = 'damageShielded',
+}
+
+local IS_LESS_THAN = -1
+local IS_EQUAL_TO = 0
+local IS_GREATER_THAN = 1
+
+local function SortingFunction(left, right, sortingKey, sortingOrder, tiebreaker)
+    local value1, value2 = left[sortingKey], right[sortingKey]
+
+    -- Log(value1, value2)
+
+    local compareResult
+    if value1 < value2 then
+        compareResult = IS_LESS_THAN
+    elseif value1 > value2 then
+        compareResult = IS_GREATER_THAN
+    else
+        compareResult = IS_EQUAL_TO
+    end
+
+    if compareResult == IS_EQUAL_TO then
+        if tiebreaker then
+            return SortingFunction(left, right, tiebreaker)
+        end
+    else
+        if sortingOrder == ZO_SORT_ORDER_UP then
+            return compareResult == IS_LESS_THAN
+        end
+
+        return compareResult == IS_GREATER_THAN
+    end
+end
+
+function addon:ApplySorting(preventCommit)
+    if not self.currentSortingKey then return end
+
+    Log('[B] Sorting requested by %s (%s)', self.currentSortingKey, tostring(self.currentSortOrder))
+
+    local scrollData = ZO_ScrollList_GetDataList(self.listControl)
+    assert(scrollData ~= nil, 'Scroll data is nil')
+
+    table.sort(scrollData, function(entry1, entry2)
+        local left, right = self.dataRows[entry1.data.index], self.dataRows[entry2.data.index]  -- TODO: duels or dataRows? Remake to use duels instead 
+        return SortingFunction(left, right, self.currentSortingKey, self.currentSortOrder)
+    end)
+
+    if not preventCommit then
+        ZO_ScrollList_Commit(self.listControl)
+    end
+end
+
+function addon:InitializeSortingHeaders()
+    local headersControl = self.duelsControl:GetNamedChild('Listing'):GetNamedChild('Header')
+
+    local function InitializeSortableHeader(headerName)
+        -- Log('Initializing sortable header `%s`', headerName)
+        local header = headersControl:GetNamedChild(headerName)
+        header:SetMouseEnabled(true)
+        header:SetHandler('OnMouseDown', function()
+            local sortingKey = SORTABLE_HEADERS[headerName]
+            if self.currentSortingKey == sortingKey then
+                self.currentSortOrder = not self.currentSortOrder
+                -- Log('Changing sort order')
+            else
+                self.currentSortOrder = ZO_SORT_ORDER_UP
+                self.currentSortingKey = sortingKey
+            end
+            self:ApplySorting()
+        end)
+    end
+
+    for headerName, _ in pairs(SORTABLE_HEADERS) do
+        InitializeSortableHeader(headerName)
+    end
+end
+
 function addon:UpdateStatsControl()
     local duelsWithResult = self.stats.totalWon + self.stats.totalLost
 
@@ -311,7 +394,9 @@ function addon:Update()
 
     local task = LibAsync:Create('UpdateDuelsDataRows')
 
-    task:For(ipairs(self.duels)):Do(HandleDuelData):Then(function() self:UpdateUI() end)
+    task:For(ipairs(self.duels)):Do(HandleDuelData)
+    :Then(function() self:ApplySorting(true) end)
+    :Then(function() self:UpdateUI() end)
 
     Log('Updated')
 end
@@ -379,10 +464,16 @@ function addon:Initialize(naming, selectedCharacters, debugging)
     self.GetName = NAMINGS[naming]
 
     self:CreateControls()
+    self:InitializeSortingHeaders()
     self:CreateScrollListDataType()
 
     local function GoodDataFilter(duelData)
-        if not duelData.player then  -- or not duelData.opponent
+        if not duelData.player
+        or not duelData.damageDone
+        or not duelData.damageTaken
+        or not duelData.healingTaken
+        or not duelData.damageShilded
+        then  -- or not duelData.opponent
             return
         end
 
@@ -424,7 +515,7 @@ function addon:LayoutBuildFor(row)
 
     local trueIndex = row.dataEntry.data.trueIndex
 
-    LibDataPacker_Build_LayoutShortBuild(self.duels[trueIndex].build)
+    LibDataPacker_Build_LayoutShortBuild(self.duels[trueIndex].player.build)
 end
 
 do

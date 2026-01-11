@@ -174,7 +174,7 @@ function addon:UpdateStatsControl()
     local winrate = PossibleNan(self.stats.totalWon / self.stats.totalMatches)
     self.statsControl:GetNamedChild('WinrateValue'):SetText(
         string.format(
-            '%.1f %% (|c00FF00%d|r / |cFF0000%d|r / |c555555%d|r)',
+            '%.1f %% (|c00FF00%s|r / |cFF0000%s|r / |c555555%s|r)',
             winrate * 100,
             IMP_STATS_SHARED.FormatNumber(self.stats.totalWon),
             IMP_STATS_SHARED.FormatNumber(self.stats.totalLost),

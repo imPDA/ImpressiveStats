@@ -1,7 +1,7 @@
 local addon = {}
 addon.name = 'ImpressiveStats'
 addon.displayName = '|c7c42f2Imp|ceeeeee-ressive Stats|r'
-addon.version = '1.3.1'
+addon.version = '1.3.2'
 
 local Log = IMP_STATS_Logger('IMP_STATS_MAIN')
 
@@ -111,7 +111,7 @@ function addon:OnLoad()
 
 	if PP then MakeItPerfect() end
 
-	IMP_STATS_InitializeSettings(addon.name .. 'Settings', addon.displayName, self.sv)
+	IMP_STATS_InitializeSettings(self)
 
 	GetControl('IMP_STATS_VersionLabel'):SetText('v.' .. addon.version)
 end
