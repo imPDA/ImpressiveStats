@@ -1,3 +1,9 @@
+1.3.2
+- Sorting for duels (numerical columns only)
+- Fix for builds displayed in duels
+- Fix for BG stats
+- API and dependencies versions changed, and some other tweaks
+
 1.3.1
 - Manifest bugfix
 
