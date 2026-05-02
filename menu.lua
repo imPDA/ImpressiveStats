@@ -45,7 +45,7 @@ function addon:Initialize(initBGs, initDuels, initTOT)
 
 	self.scenes = {}
 
-    local RIGHT_PANEL = ZO_FadeSceneFragment:New(IMP_STATS_RightPanel)
+    local RIGHT_PANEL = ZO_SimpleSceneFragment:New(IMP_STATS_RightPanel)
 
 	local function CreateScene(sceneName, container)
 		local scene = ZO_Scene:New(sceneName, SCENE_MANAGER)
@@ -60,7 +60,7 @@ function addon:Initialize(initBGs, initDuels, initTOT)
 		scene:AddFragment(TITLE_FRAGMENT)
 		scene:AddFragment(IMP_STATS_TITLE_FRAGMENT)
 
-		local fragment = ZO_FadeSceneFragment:New(container)
+		local fragment = ZO_SimpleSceneFragment:New(container)
 		scene:AddFragment(fragment)
 
 		self.scenes[sceneName] = container

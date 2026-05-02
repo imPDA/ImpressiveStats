@@ -1,3 +1,9 @@
+1.4.0
+BATTLEGROUNDS
+- Added match viewer
+- Attempt to fix insecure code error (when opening Tamriel Tomes)
+- Added `Repack Saved Variables` button in settings, it will try to repack SV, so they would becoma smaller in size again
+
 1.3.2
 - Sorting for duels (numerical columns only)
 - Fix for builds displayed in duels

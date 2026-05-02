@@ -1,0 +1,177 @@
+<GuiXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sir.insidi.at/or/schema/esoui.xsd">
+    <Controls>
+		<Label name="IMP_STATS_VIEWER_StatLabelTemplate" virtual="true" font="ZoFontGameLargeBold" wrapMode="ELLIPSIS" verticalAlignment="CENTER" horizontalAlignment="CENTER">
+			<Dimensions y="32" />
+		</Label>
+		<Label name="IMP_STATS_VIEWER_StatColumn1" virtual="true" horizontalAlignment="CENTER"><Dimensions x="80" /></Label>
+		<Label name="IMP_STATS_VIEWER_StatColumn2" virtual="true" horizontalAlignment="CENTER"><Dimensions x="48" /></Label>
+		<Label name="IMP_STATS_VIEWER_StatColumn3" virtual="true" horizontalAlignment="CENTER"><Dimensions x="48" /></Label>
+		<Label name="IMP_STATS_VIEWER_StatColumn4" virtual="true" horizontalAlignment="CENTER"><Dimensions x="48" /></Label>
+		<Label name="IMP_STATS_VIEWER_StatColumn5" virtual="true" horizontalAlignment="CENTER"><Dimensions x="100" /></Label>
+		<Label name="IMP_STATS_VIEWER_StatColumn6" virtual="true" horizontalAlignment="CENTER"><Dimensions x="100" /></Label>
+
+		<Control name="IMP_STATS_VIEWER_PlayerTemplate" virtual="true" hidden="true">
+			<Dimensions y="36" />
+			<Anchor point="TOPLEFT" />
+			<Controls>
+				<Texture name="$(parent)ClassIcon" textureFile="/esoui/art/icons/class/gamepad/gp_class_sorcerer.dds">
+					<Dimensions x="28" y="28" />
+					<Anchor point="LEFT" />
+				</Texture>
+				<Label name="$(parent)PlayerName" font="ZoFontGameLargeBold" text="PLAYER CHARACTER NAME (@PLAYER ID)" wrapMode="ELLIPSIS" verticalAlignment="CENTER">
+					<Dimensions x="400" y="32" />
+					<Anchor point="LEFT" relativeTo="$(parent)ClassIcon" relativePoint="RIGHT" offsetX="4" />
+				</Label>
+				<Label name="$(parent)MedalScore" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn1" text="99999">
+					<Anchor point="LEFT" relativeTo="$(parent)PlayerName" relativePoint="RIGHT" />
+				</Label>
+				<Label name="$(parent)Kills" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn2" text="99">
+					<Anchor point="LEFT" relativeTo="$(parent)MedalScore" relativePoint="RIGHT" />
+				</Label>
+				<Label name="$(parent)Deaths" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn3" text="99">
+					<Anchor point="LEFT" relativeTo="$(parent)Kills" relativePoint="RIGHT" />
+				</Label>
+				<Label name="$(parent)Assists" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn4" text="99">
+					<Anchor point="LEFT" relativeTo="$(parent)Deaths" relativePoint="RIGHT" />
+				</Label>
+				<Label name="$(parent)DamageDone" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn5" text="999.9K">
+					<Anchor point="LEFT" relativeTo="$(parent)Assists" relativePoint="RIGHT" />
+				</Label>
+				<Label name="$(parent)HealingDone" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn6" text="999.9K">
+					<Anchor point="LEFT" relativeTo="$(parent)DamageDone" relativePoint="RIGHT" />
+				</Label>
+			</Controls>
+		</Control>
+
+		<Control name="IMP_STATS_VIEWER_TeamTemplate" resizeToFitDescendents="true" virtual="true" hidden="true">
+			<Anchor point="TOPLEFT" />
+			<Controls>
+				<Texture name="$(parent)BG" color="EEEEEE" alpha="0.33" excludeFromResizeToFitExtents="true"><AnchorFill /></Texture>
+					<Control name="$(parent)Left">
+					<DimensionConstraints minX="100" minY="80" />
+					<Anchor point="LEFT" />
+					<!-- <Anchor point="BOTTOMRIGHT" relativeTo="$(parent)Right" relativePoint="BOTTOMLEFT" /> -->
+					<Controls>
+						<Texture name="$(parent)TeamIcon" textureFile="/esoui/art/stats/battleground_alliance_badge_storm_lords.dds">
+							<Dimensions x="48" y="48" />
+							<Anchor point="CENTER" offsetY="-16" />
+						</Texture>
+						<Label name="$(parent)Score" font="ZoFontGameLargeBold" text="9999">
+							<Dimensions y="16" />
+							<Anchor point="TOP" relativeTo="$(parent)TeamIcon" relativePoint="BOTTOM" />
+						</Label>
+						<!-- <Texture name="$(parent)BG" color="00FF00"><AnchorFill /></Texture> -->
+					</Controls>
+				</Control>
+				<Control name="$(parent)Right" resizeToFitDescendents="true">
+					<Anchor point="LEFT" relativeTo="$(parent)Left" relativePoint="RIGHT" />
+					<Controls></Controls>
+				</Control>
+			</Controls>
+		</Control>
+
+		<Label name="IMP_STATS_VIEWER_RoundNumberTemplate" virtual="true" font="ZoFontHeader4" color="INTERFACE_COLOR_TYPE_TEXT_COLORS:INTERFACE_TEXT_COLOR_NORMAL" horizontalAlignment="CENTER" mouseEnabled="true">
+			<Dimensions x="30" y="30" />
+
+			<OnMouseEnter>
+				if self.selected then return end
+				self:SetColor(GetInterfaceColor(INTERFACE_COLOR_TYPE_TEXT_COLORS, INTERFACE_TEXT_COLOR_HIGHLIGHT))
+			</OnMouseEnter>
+
+			<OnMouseExit>
+				if self.selected then
+					self:SetColor(GetInterfaceColor(INTERFACE_COLOR_TYPE_TEXT_COLORS, INTERFACE_TEXT_COLOR_SELECTED))
+				else
+					self:SetColor(GetInterfaceColor(INTERFACE_COLOR_TYPE_TEXT_COLORS, INTERFACE_TEXT_COLOR_NORMAL))
+				end
+			</OnMouseExit>
+		</Label>
+
+		<TopLevelControl name="IMP_STATS_VIEWER_TLC" resizeToFitDescendents="true" mouseEnabled="true" movable="true" hidden="true">
+			<!-- <Dimensions x="1200" /> -->
+			<Anchor point="CENTER" offsetX="-450" />
+			<Controls>
+				<!-- <Texture name="$(parent)BG" color="001111" alpha="0"><AnchorFill /></Texture> -->
+				<Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" excludeFromResizeToFitExtents="true"></Backdrop>
+				<Control name="$(parent)Header">
+					<DimensionConstraints minY="32" maxY="32" maxX="200" />
+					<Anchor point="TOP" />
+					<Controls>
+						<!-- <Texture name="$(parent)BG" color="00FF00"><AnchorFill /></Texture> -->
+						<Label name="$(parent)Label" font="ZoFontGameLargeBold" text="Impressive Stats Viewer" verticalAlignment="CENTER">
+							<Anchor point="TOP" />
+						</Label>
+						<Button name="$(parent)CloseButton" excludeFromResizeToFitExtents="true">
+							<Anchor point="TOPRIGHT" relativeTo="$(grandparent)" relativePoint="TOPRIGHT" offsetX="10" offsetY="-12" />
+							<Dimensions x="42" y="42"/>
+							<Textures 
+								normal="/esoui/art/hud/radialicon_cancel_up.dds"
+								mouseOver="/esoui/art/hud/radialicon_cancel_over.dds"
+							/>
+							<OnClicked>
+								self:GetParent():GetParent():SetHidden(true)
+								ZO_ScrollList_SelectData(IMP_STATS_MATCHESListingScrollableList)
+							</OnClicked>
+						</Button>
+					</Controls>
+				</Control>
+				<Control name="$(parent)Body" resizeToFitDescendents="true">
+					<Anchor point="TOP" relativeTo="$(parent)Header" relativePoint="BOTTOM" />
+					<Controls>
+						<!-- <Texture name="$(parent)BG" color="00FF00" excludeFromResizeToFitExtents="true"><AnchorFill /></Texture> -->
+						<Control name="$(parent)Headers" excludeFromResizeToFitExtents="true" resizeToFitDescendents="true">
+							<Dimensions y="36" />
+							<Anchor point="TOPRIGHT" relativePoint="TOPRIGHT" />
+							<Controls>
+								<Texture name="$(parent)ClassIcon" textureFile="/esoui/art/icons/class/gamepad/gp_class_sorcerer.dds" alpha="0">
+									<Dimensions x="28" y="28" />
+									<Anchor point="LEFT" />
+								</Texture>
+								<Label name="$(parent)PlayerName" font="ZoFontGameLargeBold" text="Player Name" wrapMode="ELLIPSIS" verticalAlignment="CENTER">
+									<Dimensions x="400" y="32" />
+									<Anchor point="LEFT" relativeTo="$(parent)ClassIcon" relativePoint="RIGHT" offsetX="4" />
+								</Label>
+								<Label name="$(parent)MedalScore" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn1" text="Score">
+									<Anchor point="LEFT" relativeTo="$(parent)PlayerName" relativePoint="RIGHT" />
+								</Label>
+								<Label name="$(parent)Kills" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn2" text="K">
+									<Anchor point="LEFT" relativeTo="$(parent)MedalScore" relativePoint="RIGHT" />
+								</Label>
+								<Label name="$(parent)Deaths" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn3" text="D">
+									<Anchor point="LEFT" relativeTo="$(parent)Kills" relativePoint="RIGHT" />
+								</Label>
+								<Label name="$(parent)Assists" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn4" text="A">
+									<Anchor point="LEFT" relativeTo="$(parent)Deaths" relativePoint="RIGHT" />
+								</Label>
+								<Label name="$(parent)DamageDone" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn5" text="Damage">
+									<Anchor point="LEFT" relativeTo="$(parent)Assists" relativePoint="RIGHT" />
+								</Label>
+								<Label name="$(parent)HealingDone" inherits="IMP_STATS_VIEWER_StatLabelTemplate IMP_STATS_VIEWER_StatColumn6" text="Healing">
+									<Anchor point="LEFT" relativeTo="$(parent)DamageDone" relativePoint="RIGHT" />
+								</Label>
+							</Controls>
+						</Control>
+						<Control name="$(parent)Rounds" resizeToFitDescendents="true">
+							<Anchor point="TOPRIGHT" relativeTo="$(parent)Headers" relativePoint="BOTTOMRIGHT" offsetY="52" />
+							<Controls>
+								<Label name="$(parent)Label" font="ZoFontHeader4" color="INTERFACE_COLOR_TYPE_TEXT_COLORS:INTERFACE_TEXT_COLOR_NORMAL" horizontalAlignment="LEFT" text="Rounds:">
+									<Anchor point="TOPLEFT" />
+									<Dimensions y="30" />
+								</Label>
+								<Label name="$(parent)Round1" inherits="IMP_STATS_VIEWER_RoundNumberTemplate" text="1">
+									<Anchor point="LEFT" relativeTo="$(parent)Label" relativePoint="RIGHT" offsetX="12" />
+								</Label>
+								<Label name="$(parent)Round2" inherits="IMP_STATS_VIEWER_RoundNumberTemplate" text="2">
+									<Anchor point="LEFT" relativeTo="$(parent)Round1" relativePoint="RIGHT" offsetX="12" />
+								</Label>
+								<Label name="$(parent)Round3" inherits="IMP_STATS_VIEWER_RoundNumberTemplate" text="3">
+									<Anchor point="LEFT" relativeTo="$(parent)Round2" relativePoint="RIGHT" offsetX="12" />
+								</Label>
+							</Controls>
+						</Control>
+					</Controls>
+				</Control>
+			</Controls>
+		</TopLevelControl>
+    </Controls>
+</GuiXml>

@@ -144,8 +144,8 @@ end
 function IMP_STATS_TributeLeaderboard_Initialize(initialize)
     addon:Initialize(IMP_STATS_TRIBUTE_LEADERBOARD)
 
-    local fragment = ZO_FadeSceneFragment:New(IMP_STATS_TRIBUTE_LEADERBOARD)
-    IMP_STATS_LEFT_PANEL_BACKGROUND = ZO_FadeSceneFragment:New(IMP_STATS_LeftPanelBackground)
+    local fragment = ZO_SimpleSceneFragment:New(IMP_STATS_TRIBUTE_LEADERBOARD)
+    IMP_STATS_LEFT_PANEL_BACKGROUND = ZO_SimpleSceneFragment:New(IMP_STATS_LeftPanelBackground)
 
     local sceneName = 'IMP_STATS_MENU' .. SI_IMP_PVP_METER_TOT_TAB_TITLE .. 'Scene'
     local scene = SCENE_MANAGER:GetScene(sceneName)

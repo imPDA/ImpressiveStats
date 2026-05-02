@@ -103,6 +103,23 @@ function settings:Initialize(addon)
         }
     end
 
+    bm[#bm+1] = {
+        type = 'button',
+        name = '|cFFA500Repack Saved Variables|r',
+        func = function()
+            IMP_STATS_MATCHES_MANAGER:RepackMatches()
+        end,
+        tooltip = function()
+            local text = 'Will attempt to repack Saved Variables to make them smaller and increase performance.\n\nThere are %d saved matches total, it can take some time!'
+            text = text:format(#IMP_STATS_MATCHES_MANAGER.savedMatches)
+
+            return text
+        end,
+        -- disabled = function() return not IMP_STATS_MATCHES_MANAGER.unpackedSavedMatches end,
+        requiresReload = true,
+        reference = IMP_STATS_REPACK_BUTTON_REFERENCE
+    }
+
     local duelsModule = {
         {
             type = 'checkbox',

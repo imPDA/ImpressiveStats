@@ -370,6 +370,19 @@ function addon:CreateScrollListDataType()
 
 	ZO_ScrollList_AddDataType(control, typeId, templateName, height, setupFunction, hideCallback, dataTypeSelectSound, resetControlCallback)
 
+    local function LayoutMatchRow(previouslySelectedData, selectedData, selectingDuringRebuild)
+		if not selectedData then
+			IMP_STATS_VIEWER:OnDeselect()
+		elseif selectedData then
+			Log('Match selected')
+			local match = IMP_STATS_MATCHES_MANAGER.matches[selectedData.matchIndex]
+			IMP_STATS_VIEWER:LayoutMatch(match)
+		end
+	end
+
+	ZO_ScrollList_EnableSelection(control, 'ZO_ThinListHighlight', LayoutMatchRow)
+	ZO_ScrollList_SetDeselectOnReselect(control, true)
+
     Log('Scroll list data type created')
 end
 

@@ -1,6 +1,6 @@
 ## Title: |c7c42f2Imp|ceeeeee-ressive Stats|r
-## AddOnVersion: 1132000
-## APIVersion: 101048
+## AddOnVersion: 1140000
+## APIVersion: 101049
 ## Author: |c7c42f2@impda|r [EU]
 ## DependsOn: LibMainMenu-2.0>=40400 LibCombat>=84 LibAsync>=30101 LibAddonMenu-2.0>=41 LibCustomMenu>=730 LibDataPacker>=1004000
 ## OptionalDependsOn: LibDebugLogger PerfectPixel ImpPvPMeter
@@ -20,6 +20,8 @@ controls.xml
 battlegrounds/controls.xml
 battlegrounds/ui.lua
 battlegrounds/manager.lua
+battlegrounds/viewer.xml
+battlegrounds/viewer.lua
 
 duels/controls.xml
 duels/ui.lua

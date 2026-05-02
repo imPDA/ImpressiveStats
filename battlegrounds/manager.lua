@@ -410,6 +410,7 @@ function MatchManager:GetDataRows(task)
         if type(matchData) == 'string' then
             self.matches[index] = self.UnpackMatch(matchData)
         else
+            self.unpackedSavedMatches = true
             self.matches[index] = {}
             ZO_DeepTableCopy(matchData, self.matches[index])
         end
@@ -604,7 +605,7 @@ local CLASSES_LOOKUP_TABLE = {
 }
 
 local APIS_LOOKUP_TABLE = {
-    101044, 101045, 101046, 101047
+    101044, 101045, 101046, 101047, 101048, 101049, 101050,
 }
 
 local RACES_LOOKUP_TABLE = {
@@ -764,6 +765,7 @@ local MatchSchema_1 = Field.Table(nil, {
 
 local MatchSchema_2 = MatchSchema_1:ShallowCopy()
 MatchSchema_2:Replace('api', Field.Enum('api', APIS_LOOKUP_TABLE, INVERSED, 8))
+-- This can handle 2^8-1 API versions in total
 
 -- IMP_STATS_MATCH_SCHEMA = MatchSchema
 
@@ -789,6 +791,37 @@ MatchManager.UnpackMatch = UnpackMatch
 function MatchManager:OnPlayerActivated(initial)
     self:ResolveCurrentState()
     Log('Player activated, state: %s', STATE_NAME[self.state])
+end
+
+function MatchManager:RepackMatches()
+    local successes, fails = 0, 0
+
+    local matches = self.savedMatches
+    for i = 1, #matches do
+        local savedMatch = matches[i]
+        if type(savedMatch) == "table" then
+            local success, result = pcall(PackMatch, savedMatch)
+            if success then
+                matches[i] = result
+                successes = successes + 1
+            else
+                fails = fails + 1
+            end
+        end
+    end
+
+    Log('%d / %d matches repacked', successes, successes + fails)
+    df('%d / %d matches repacked', successes, successes + fails)
+
+    if fails > 0 then
+        Log('There are %d more incorrectly packed matches, they are probably corrupted, you can ask @imPDA on forum how to fix it. If this number is small, it is actually OK.', fails)
+        df('There are %d more incorrectly packed matches, they are probably corrupted, you can ask @imPDA on forum how to fix it. If this number is small, it is actually OK.', fails)
+    else
+        Log('That means everything is OK!')
+        d('That means everything is OK!')
+    end
+
+    return successes, fails
 end
 
 -- ----------------------------------------------------------------------------
