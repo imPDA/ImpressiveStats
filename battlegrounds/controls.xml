@@ -308,6 +308,16 @@
 						</Control>
 					</Controls>
 				</Control>
+
+				<Label name="$(parent)PerformanceMeter" font="ZoFontGame" color="777777AA" text="Update: - ms" mouseEnabled="true">
+                    <Anchor point="TOPLEFT" relativeTo="$(parent)Listing" relativePoint="BOTTOMLEFT" />
+                    <OnMouseEnter>
+                        ZO_Tooltips_ShowTextTooltip(self, BOTTOM, 'How fast list updates. Let me know if it is too high (>500ms, initial loading can be long, it is intentional). Will hide later.')
+                    </OnMouseEnter>
+                    <OnMouseExit>
+                        ZO_Tooltips_HideTextTooltip()
+                    </OnMouseExit>
+                </Label>
 			</Controls>
 		</TopLevelControl>
     </Controls>

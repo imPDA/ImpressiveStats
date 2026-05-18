@@ -213,6 +213,7 @@ function addon:CreateControls()
     self.listControl = listControl
     self.statsControl = statsControl
     self.filtersControl = filtersControl
+    self.performanceMeter = matchesControl:GetNamedChild('PerformanceMeter')
 
     matchesControl:SetHandler("OnShow", function()
         if self.dirty then self:Update() end
@@ -228,6 +229,8 @@ function addon:InitializeSortingHeaders()
         local header = headersControl:GetNamedChild(headerName)
         header:SetMouseEnabled(true)
         header:SetHandler('OnMouseDown', function()
+            local sortingStart = GetGameTimeSeconds()
+
             local sortingKey = SORTABLE_HEADERS[headerName]
             if self.currentSortingKey == sortingKey then
                 self.currentSortOrder = not self.currentSortOrder
@@ -237,6 +240,9 @@ function addon:InitializeSortingHeaders()
                 self.currentSortingKey = sortingKey
             end
             self:ApplySorting()
+
+            local sortingDuration = GetGameTimeSeconds() - sortingStart
+            self.performanceMeter:SetText(('Update ~%d ms'):format(sortingDuration * 1000))
         end)
     end
 
@@ -476,6 +482,7 @@ end
 
 function addon:Update()
     -- TODO ShowWarning
+    local updateStart = GetGameTimeSeconds()
 
     if self:IsHidden() then
         self.dirty = true
@@ -501,6 +508,10 @@ function addon:Update()
     :Then(function() self:ApplySorting(true) end)
     :Then(function() ZO_ScrollList_Commit(self.listControl) end)
     :Then(function() self.dirty = false end)
+    :Then(function()
+        local updateDuration = GetGameTimeSeconds() - updateStart
+        self.performanceMeter:SetText(('Update ~%d ms'):format(updateDuration * 1000))
+    end)
 end
 
 function addon:UpdateScrollListControl(task)

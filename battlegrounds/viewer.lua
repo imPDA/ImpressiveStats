@@ -228,3 +228,5 @@ function ImperessiveStatsViewer:OnDeselect()
 	TLC:SetHidden(true)
 	self:Clear()
 end
+
+-- TODO: add category for players stats with RMB

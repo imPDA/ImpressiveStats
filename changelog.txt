@@ -1,3 +1,11 @@
+1.5.0
+BATTLEGROUNDS
+- New feature to see (average) stats of all players you played with
+- New feature: you can add category to player, click RMB on player during match or in stats view
+- Category can be seen in stats view and on battleground players list
+- You can change name of category and color
+- Added a small performance meter showing how long it takes to update battlegrounds list or players stats list, will be removed after some testing. Please let me know if you see high update times
+
 1.4.0
 BATTLEGROUNDS
 - Added match viewer

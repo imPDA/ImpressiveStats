@@ -28,6 +28,18 @@ end
 --]]
 --#endregion
 
+-- TODO: remove this workaround
+local function rgbToHex(r, g, b)
+    return string.format('%02X%02X%02X', math.floor(r * 255), math.floor(g * 255), math.floor(b * 255))
+end
+
+local function hexToRGB(hex)
+    local r = tonumber('0x'..hex:sub(1,2))
+    local g = tonumber('0x'..hex:sub(3,4))
+    local b = tonumber('0x'..hex:sub(5,6))
+    return r / 255, g / 255, b / 255
+end
+
 function settings:Initialize(addon)
     local settingsName = addon.name .. 'Settings'
     local settingsDisplayName = addon.displayName
@@ -81,15 +93,15 @@ function settings:Initialize(addon)
     }
 
     bm[#bm+1] = {
-        type = "button",
-        name = "Delete matches data",
+        type = 'button',
+        name = 'Delete matches data',
         func = function()
             ImpressiveStatsMatchesData = {}
             ReloadUI()
         end,
-        width = "full",
+        width = 'full',
         isDangerous = true,
-        warning = "Тhis is |cee0000DESTRUCTIVE|r action and it will DELETE ALL DATA (and for both EU and NA servers) about BATTLEGROUND MATCHES recorded. There would be |cee0000NO WAY TO RECOVER|r it!\n\n|c00aa00Please consider saving it before, you can help to gather statistics by sending this file to me :)|r\n\nProceed only if you 100% sure about it!\n\nUI will be automatically reloaded.",
+        warning = 'Тhis is |cee0000DESTRUCTIVE|r action and it will DELETE ALL DATA (and for both EU and NA servers) about BATTLEGROUND MATCHES recorded. There would be |cee0000NO WAY TO RECOVER|r it!\n\n|c00aa00Please consider saving it before, you can help to gather statistics by sending this file to me :)|r\n\nProceed only if you 100% sure about it!\n\nUI will be automatically reloaded.',
     }
 
     if sv.battlegrounds.debugging ~= nil or HashString(GetUnitDisplayName('player')) == 1558608849 then
@@ -119,6 +131,35 @@ function settings:Initialize(addon)
         requiresReload = true,
         reference = IMP_STATS_REPACK_BUTTON_REFERENCE
     }
+
+    -- ImpressiveStatsPlayersSV
+
+    local categories = ImpressiveStatsPlayersSV.categories
+
+    bm[#bm+1] = {
+        type = 'divider',
+        height = 8,
+        alpha = 0.5,
+    }
+
+    for ci = 1, #categories do
+        bm[#bm+1] = {
+            type = 'editbox',
+            name = ('Category %d name'):format(ci),
+            getFunc = function() return categories[ci].name end,
+            setFunc = function(text) categories[ci].name = text end,
+            isMultiline = false,
+            width = 'half',
+        }
+
+        bm[#bm+1] = {
+            type = 'colorpicker',
+            name = ('Category %d color'):format(ci),
+            getFunc = function() return hexToRGB(categories[ci].color) end,
+            setFunc = function(r, g, b, a) categories[ci].color = rgbToHex(r, g, b) end,
+            width = 'half',
+        }
+    end
 
     local duelsModule = {
         {
@@ -153,15 +194,15 @@ function settings:Initialize(addon)
             setFunc = function(value) sv.duels.saveBuilds = value end,
         },
         {
-            type = "button",
-            name = "Delete duels data",
+            type = 'button',
+            name = 'Delete duels data',
             func = function()
                 ImpressiveStatsDuelsData = {}
                 ReloadUI()
             end,
-            width = "full",
+            width = 'full',
             isDangerous = true,
-            warning = "Тhis is |cee0000DESTRUCTIVE|r action and it will DELETE ALL DATA (and for both EU and NA servers) about DUELS recorded. There would be |cee0000NO WAY TO RECOVER|r it!\n\nProceed only if you 100% sure about it!\n\nUI will be automatically reloaded.",
+            warning = 'Тhis is |cee0000DESTRUCTIVE|r action and it will DELETE ALL DATA (and for both EU and NA servers) about DUELS recorded. There would be |cee0000NO WAY TO RECOVER|r it!\n\nProceed only if you 100% sure about it!\n\nUI will be automatically reloaded.',
         },
     }
 

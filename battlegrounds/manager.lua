@@ -1113,16 +1113,16 @@ local function UpdateSavedVariablesVersion(svTable, svProblemsTable)
 end
 
 
-local function unpackAndShow(packedMatchIndex)
-    if not Zgoo then return end
+-- local function unpackAndShow(packedMatchIndex)
+--     if not Zgoo then return end
 
-    local server = string.sub(GetWorldName(), 1, 2)
-    local data = ImpressiveStatsMatchesData[server][tonumber(packedMatchIndex)]
+--     local server = string.sub(GetWorldName(), 1, 2)
+--     local data = ImpressiveStatsMatchesData[server][tonumber(packedMatchIndex)]
 
-    IMP_STATS_GLOBAL_UNPACKED_MATCH = UnpackMatch(data)
-    Zgoo.CommandHandler('IMP_STATS_GLOBAL_UNPACKED_MATCH')
-end
-SLASH_COMMANDS['/impus'] = unpackAndShow
+--     IMP_STATS_GLOBAL_UNPACKED_MATCH = UnpackMatch(data)
+--     Zgoo.CommandHandler('IMP_STATS_GLOBAL_UNPACKED_MATCH')
+-- end
+-- SLASH_COMMANDS['/impus'] = unpackAndShow
 
 
 -- ----------------------------------------------------------------------------
@@ -1140,4 +1140,6 @@ function IMP_STATS_InitializeNewMatchManager(settings, characterSettings)
     IMP_STATS_MATCHES_MANAGER.sv = settings
 
     IMP_STATS_MATCHES_UI:Initialize(settings.namingMode, characterSettings, settings.showOnlyLastUpdateMatches, settings.debugging)
+
+    IMP_STATS_InitializePlayersStats()
 end
