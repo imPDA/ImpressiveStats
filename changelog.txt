@@ -1,3 +1,9 @@
+1.5.1
+BATTLEGROUNDS
+- [IMPORTANT] Data will be repacked on first load to add 4x4x4 type, if it fail, part of the data will not be displayed, but it is recoverable.
+Each situation, depending on the cause, will require different actions. Ask me what you should do next, or start from scratch :)
+- Stats of all players now hidden by default, press button near the title to open the panel (IMP-RESSIVE STATS 🏆 <- here)
+
 1.5.0
 BATTLEGROUNDS
 - New feature to see (average) stats of all players you played with

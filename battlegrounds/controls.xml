@@ -318,6 +318,26 @@
                         ZO_Tooltips_HideTextTooltip()
                     </OnMouseExit>
                 </Label>
+
+				<Button name="$(parent)OpenPlayers" mouseOverBlendMode="ADD" excludeFromResizeToFitExtents="true">
+					<Dimensions x="42" y="42"/>
+					<Anchor point="LEFT" relativeTo="ZO_SharedTitleLabel" relativePoint="RIGHT" offsetX="5" />
+					<Textures
+						normal="EsoUI/Art/Journal/journal_tabIcon_leaderboard_up.dds"
+						mouseOver="EsoUI/Art/Journal/journal_tabIcon_leaderboard_over.dds"
+						pressed="EsoUI/Art/Journal/journal_tabIcon_leaderboard_down.dds"
+						disabled="EsoUI/Art/Journal/journal_tabIcon_leaderboard_disabled.dds"
+					/>
+					<OnMouseEnter>
+						ZO_Tooltips_ShowTextTooltip(self, TOP, 'Players\'s Stats')
+					</OnMouseEnter>
+					<OnMouseExit>
+						ZO_Tooltips_HideTextTooltip()
+					</OnMouseExit>
+					<OnClicked>
+						IMP_STATS_PlayersSummary:SetHidden(not IMP_STATS_PlayersSummary:IsHidden())
+					</OnClicked>
+				</Button>
 			</Controls>
 		</TopLevelControl>
     </Controls>

@@ -16,12 +16,16 @@ local TEAM_TYPE_4_SOLO = 1
 local TEAM_TYPE_8_SOLO = 2
 local TEAM_TYPE_4_GROUP = 3
 local TEAM_TYPE_8_GROUP = 4
+local TEAM_TYPE_4_3_SOLO = 5
+local TEAM_TYPE_4_3_GROUP = 6
 
 local TEAM_TYPES = {
     [TEAM_TYPE_4_SOLO] = '4x4 - Solo',
     [TEAM_TYPE_8_SOLO] = '8x8 - Solo',
     [TEAM_TYPE_4_GROUP] = '4x4 - Group',
     [TEAM_TYPE_8_GROUP] = '8x8 - Group',
+    [TEAM_TYPE_4_3_SOLO] = '4x4x4 - Solo',
+    [TEAM_TYPE_4_3_GROUP] = '4x4x4 - Group',
 }
 
 addon.filters = {}
@@ -32,13 +36,15 @@ addon.selections = {
         TEAM_TYPE_8_SOLO,
         TEAM_TYPE_4_GROUP,
         TEAM_TYPE_8_GROUP,
+        TEAM_TYPE_4_3_SOLO,
+        TEAM_TYPE_4_3_GROUP,
     },
     modes = {
         BATTLEGROUND_GAME_TYPE_CAPTURE_THE_FLAG,
-        BATTLEGROUND_GAME_TYPE_CRAZY_KING,
         BATTLEGROUND_GAME_TYPE_DEATHMATCH,
-        BATTLEGROUND_GAME_TYPE_DOMINATION,
         BATTLEGROUND_GAME_TYPE_KING_OF_THE_HILL,
+        BATTLEGROUND_GAME_TYPE_DOMINATION,
+        BATTLEGROUND_GAME_TYPE_CRAZY_KING,
         BATTLEGROUND_GAME_TYPE_MURDERBALL,
     },
     characters = {}
@@ -382,6 +388,10 @@ function addon:CreateScrollListDataType()
 		elseif selectedData then
 			Log('Match selected')
 			local match = IMP_STATS_MATCHES_MANAGER.matches[selectedData.matchIndex]
+            if #match.rounds[1].players < 2 then
+                local FULL = true
+                match = IMP_STATS_MATCHES_MANAGER.UnpackMatch(IMP_STATS_MATCHES_MANAGER.savedMatches[selectedData.matchIndex], FULL)
+            end
 			IMP_STATS_VIEWER:LayoutMatch(match)
 		end
 	end
@@ -545,24 +555,14 @@ InitializeFilter = IMP_STATS_SHARED.InitializeFilter
 -- end
 
 function addon:InitializeTeamTypeFilter()
-    local entriesData = {
-        {
-            text = '4x4 - Solo',
-            type = TEAM_TYPE_4_SOLO,
-        },
-        {
-            text = '8x8 - Solo',
-            type = TEAM_TYPE_8_SOLO,
-        },
-        {
-            text = '4x4 - Group',
-            type = TEAM_TYPE_4_GROUP,
-        },
-        {
-            text = '8x8 - Group',
-            type = TEAM_TYPE_8_GROUP,
-        },
-    }
+    local entriesData = {}
+
+    for teamType, teamTypeName in ipairs(TEAM_TYPES) do
+        entriesData[teamType] = {
+            type = teamType,
+            text = teamTypeName,
+        }
+    end
 
     local function callback(newSelection)
         self.selections.teamTypes = newSelection

@@ -25,8 +25,10 @@ local TEAM_TYPE_4_SOLO = 1
 local TEAM_TYPE_8_SOLO = 2
 local TEAM_TYPE_4_GROUP = 3
 local TEAM_TYPE_8_GROUP = 4
+local TEAM_TYPE_4_3_SOLO = 5
+local TEAM_TYPE_4_3_GROUP = 6
 
-local function getTeamType(lfgActivityId, teamSize)
+local function getTeamType(lfgActivityId, teamSize, numTeams)
     local groupType = GetActivityGroupType(lfgActivityId)
 
     local teamType
@@ -38,19 +40,25 @@ local function getTeamType(lfgActivityId, teamSize)
         --     teamType = TEAM_TYPE_8_GROUP
         elseif groupType == LFG_GROUP_TYPE_BIG_TEAM_BATTLE then
             teamType = TEAM_TYPE_8_GROUP
-        else
-            Log('Problem with GetMatchGroupType, teamSize: %d, groupType: %d', teamSize, groupType)
         end
     elseif teamSize == 4 then
-        if groupType == LFG_GROUP_TYPE_NONE then
-            teamType = TEAM_TYPE_4_SOLO
-        elseif groupType == LFG_GROUP_TYPE_REGULAR then
-            teamType = TEAM_TYPE_4_GROUP
-        else
-            Log('Problem with GetMatchGroupType, teamSize: %d, groupType: %d', teamSize, groupType)
+        if numTeams == 2 then
+            if groupType == LFG_GROUP_TYPE_NONE then
+                teamType = TEAM_TYPE_4_SOLO
+            elseif groupType == LFG_GROUP_TYPE_REGULAR then
+                teamType = TEAM_TYPE_4_GROUP
+            end
+        elseif numTeams == 3 then
+            if groupType == LFG_GROUP_TYPE_NONE then
+                teamType = TEAM_TYPE_4_3_SOLO
+            elseif groupType == LFG_GROUP_TYPE_REGULAR then
+                teamType = TEAM_TYPE_4_3_GROUP
+            end
         end
-    else
-        Log('Problem with GetMatchGroupType, teamSize: %d, groupType: %d', teamSize, groupType)
+    end
+
+    if not teamType then
+        Log('Can\'t decide team type for teamSize %d, groupType %d and %d teams', teamSize, groupType, numTeams)
     end
 
     return teamType
@@ -63,7 +71,8 @@ local function GetNewMatchFromCurrentMatch()
     Log('Creating new match, battlegorundId: %d', bgId)
 
     local lfgActivityId = GetCurrentLFGActivityId()
-    local teamSize = GetBattlegroundTeamSize(GetCurrentBattlegroundId())
+    local teamSize = GetBattlegroundTeamSize(bgId)
+    local numTeams = GetBattlegroundNumTeams(bgId)
 
     local currentMatch = {
         api = GetAPIVersion(),
@@ -77,7 +86,7 @@ local function GetNewMatchFromCurrentMatch()
         result = BATTLEGROUND_RESULT_INVALID,
         rounds = {},
         teamSize = teamSize,
-        teamType = getTeamType(lfgActivityId, teamSize),
+        teamType = getTeamType(lfgActivityId, teamSize, numTeams),
         type = GetCurrentBattlegroundGameType(),
         -- zoneIndex = unitZoneIndex,
         -- zoneName = GetUnitZone('player'),
@@ -645,8 +654,12 @@ local TEAM_SIZE_LOOKUP_TABLE = {
     4, 8,
 }
 
-local TEAM_TYPE_LOOKUP_TABLE = {
+local TEAM_TYPE_LOOKUP_TABLE_pre1151000 = {
     1, 2, 3, 4,
+}
+
+local TEAM_TYPE_LOOKUP_TABLE = {
+    1, 2, 3, 4, 5, 6
 }
 
 local MATCH_TYPE_LOOKUP_TABLE = {
@@ -723,19 +736,20 @@ local PlayerSchema = Field.Table('player', {
 
 local Players = Field.VLArray('players', 16, PlayerSchema)
 
--- function Players:Unserialize(binaryBuffer)
---     local length = self.length:Unserialize(binaryBuffer)
+local ReadPlayers = ZO_DeepTableCopy(Players)
+function ReadPlayers:Unserialize(binaryBuffer)
+    local length = self.length:Unserialize(binaryBuffer)
 
---     if length == 0 then return {} end
+    if length == 0 then return {} end
 
---     local firstPlayer = self.subType:Unserialize(binaryBuffer)
+    local firstPlayer = self.subType:Unserialize(binaryBuffer)
 
---     for _ = 2, length do
---         self.subType:Skip(binaryBuffer)
---     end
+    for _ = 2, length do
+        self.subType:Skip(binaryBuffer)
+    end
 
---     return { firstPlayer }
--- end
+    return { firstPlayer }
+end
 
 local MatchSchema_1 = Field.Table(nil, {
     --[[ 1]] Field.Enum('api', {unpack(APIS_LOOKUP_TABLE, 1, 2)}, INVERSED),
@@ -756,7 +770,7 @@ local MatchSchema_1 = Field.Table(nil, {
         Field.VLArray('scores', 3, Field.Number(nil, 10)),
     })),
     --[[13]] Field.Enum('teamSize', TEAM_SIZE_LOOKUP_TABLE, INVERSED),
-    --[[14]] Field.Enum('teamType', TEAM_TYPE_LOOKUP_TABLE, INVERSED),
+    --[[14]] Field.Enum('teamType', TEAM_TYPE_LOOKUP_TABLE_pre1151000, INVERSED),
     --[[15]] Field.Enum('type', MATCH_TYPE_LOOKUP_TABLE, INVERSED),
     --[[16]] Field.Number('zoneId', 11),  -- TODO: check
 
@@ -767,22 +781,25 @@ local MatchSchema_2 = MatchSchema_1:ShallowCopy()
 MatchSchema_2:Replace('api', Field.Enum('api', APIS_LOOKUP_TABLE, INVERSED, 8))
 -- This can handle 2^8-1 API versions in total
 
--- IMP_STATS_MATCH_SCHEMA = MatchSchema
+local MatchSchema_3 = MatchSchema_2:ShallowCopy()
+MatchSchema_3:Replace('teamType', Field.Enum('teamType', TEAM_TYPE_LOOKUP_TABLE, INVERSED))
 
--- local ReadMatchSchema = {}
--- ZO_DeepTableCopy(MatchSchema, ReadMatchSchema)
--- ReadMatchSchema.fields[12].subType.fields[1] = ReadPlayers
+-- IMP_STATS_MATCH_SCHEMA = MatchSchema
+local LAST_MATCH_SCHEMA = MatchSchema_3
+
+local ReadMatchSchema = ZO_DeepTableCopy(LAST_MATCH_SCHEMA)
+ReadMatchSchema._fields[12].subType._fields[1] = ReadPlayers
 
 local ENCODE_BASE = LDP.Base.Base64RCF4648
 
 local function PackMatch(matchData, schema)
-    schema = schema or MatchSchema_2
+    schema = schema or LAST_MATCH_SCHEMA
     return LDP.Pack(matchData, schema, ENCODE_BASE)
 end
 MatchManager.PackMatch = PackMatch
 
-local function UnpackMatch(packedMatch)
-    return LDP.Unpack(packedMatch, MatchSchema_2, ENCODE_BASE)
+local function UnpackMatch(packedMatch, full)
+    return LDP.Unpack(packedMatch, full and LAST_MATCH_SCHEMA or ReadMatchSchema, ENCODE_BASE)
 end
 MatchManager.UnpackMatch = UnpackMatch
 
@@ -826,16 +843,51 @@ end
 
 -- ----------------------------------------------------------------------------
 
-local function UpdateSavedVariablesVersion(svTable, svProblemsTable)
-    Log('Data version: %d', svTable.version)
+local _problemsSV
 
-    if svTable.version == nil then
-        svTable.version = 0
-        Log('Bumped to %d', svTable.version)
+local VersionProblems = {}
+VersionProblems.__index = VersionProblems
+
+function VersionProblems.New()
+    return setmetatable({}, VersionProblems)
+end
+
+function VersionProblems:AddProblemWithMatchId(matchId, problemDescription)
+    if not self[matchId] then self[matchId] = {} end
+    table.insert(self[matchId], problemDescription)
+end
+
+local function UpdateToVersion(sv, newVersionNumber, fn)
+    if sv.version >= newVersionNumber then return end
+
+    local versionProblems = VersionProblems.New()
+
+    if _problemsSV[newVersionNumber] then
+        Log('Already tried to update to version %d! There are %d errors.', newVersionNumber, NonContiguousCount(_problemsSV[newVersionNumber]))
     end
 
-    if svTable.version < 1010019 then  -- before 0.1.0b19
-        for key, data in pairs(svTable) do
+    _problemsSV[newVersionNumber] = versionProblems
+
+    fn(sv, versionProblems)
+
+    sv.version = newVersionNumber
+    Log('Bumped to %d', newVersionNumber)
+end
+
+local function UpdateSavedVariablesVersion(svTable)
+    if svTable.version == nil then
+        svTable.version = 0
+        Log('Data without version, set to 0!')
+    else
+        Log('Data version: %d', svTable.version)
+    end
+
+    ImpressiveStatsMatchesUpgradesProblems = ImpressiveStatsMatchesUpgradesProblems or {}
+    _problemsSV = ImpressiveStatsMatchesUpgradesProblems
+
+    -- before 0.1.0b19
+    UpdateToVersion(svTable, 1010019, function(sv)
+        for key, data in pairs(sv) do
             if key ~= 'version' then
                 for _, matchData in ipairs(data) do
                     if matchData.api == nil then matchData.api = 101044 end
@@ -843,13 +895,10 @@ local function UpdateSavedVariablesVersion(svTable, svProblemsTable)
                 end
             end
         end
+    end)
 
-        svTable.version = 1010019
-        Log('Bumped to %d', svTable.version)
-    end
-
-    if svTable.version < 1102000 then
-        for key, data in pairs(svTable) do
+    UpdateToVersion(svTable, 1102000, function(sv)
+        for key, data in pairs(sv) do
             if key ~= 'version' then
                 for _, matchData in ipairs(data) do
                     if matchData.playerCharacterId == nil then
@@ -861,255 +910,254 @@ local function UpdateSavedVariablesVersion(svTable, svProblemsTable)
                 end
             end
         end
+    end)
 
-        svTable.version = 1102000
-        Log('Bumped to %d', svTable.version)
-    end
+    -- local problems
+    -- local function addProblemWithMatchId(matchId, problem)
+    --     if not problems then error('Problems tables was not created') end
+    --     problems[matchId] = problems[matchId] or {}
+    --     table.insert(problems[matchId], problem)
+    -- end
 
-    local problems
-    local function handleProblem(matchId, problem)
-        if not problems then error('Problems tables was not created') end
-        problems[matchId] = problems[matchId] or {}
-        table.insert(problems[matchId], problem)
-    end
+    local function deleteCharacterId(matchData)
+        local playerCharacterId = matchData.playerCharacterId
 
-    do
-        local function deleteCharacterId(matchData)
-            local playerCharacterId = matchData.playerCharacterId
-
-            if not playerCharacterId or playerCharacterId == '' then
-                for _, roundData in ipairs(matchData.rounds) do
-                    if roundData.players and roundData.players[1] then
-                        local player = roundData.players[1]
-                        if player.characterId then
-                            matchData.playerCharacterId = player.characterId
-                            player.characterId = nil
-                        end
+        if not playerCharacterId or playerCharacterId == '' then
+            for _, roundData in ipairs(matchData.rounds) do
+                if roundData.players and roundData.players[1] then
+                    local player = roundData.players[1]
+                    if player.characterId then
+                        matchData.playerCharacterId = player.characterId
+                        player.characterId = nil
+                    end
+                else
+                    return
+                end
+            end
+        else
+            for _, roundData in ipairs(matchData.rounds) do
+                if roundData.players and roundData.players[1] then
+                    local player = roundData.players[1]
+                    if player.characterId and player.characterId == playerCharacterId then
+                        player.characterId = nil
                     else
                         return
                     end
+                else
+                    return
                 end
-            else
-                for _, roundData in ipairs(matchData.rounds) do
-                    if roundData.players and roundData.players[1] then
-                        local player = roundData.players[1]
-                        if player.characterId and player.characterId == playerCharacterId then
-                            player.characterId = nil
+            end
+        end
+
+        return true
+    end
+
+    local function afterU45(timestamp)
+        return 1741597200 <= timestamp  -- Mon Mar 10 2025 09:00:00 GMT+0000
+    end
+
+    local function setApiVersion(matchData)
+        if not matchData.entryTimestamp then return end
+
+        if matchData.api == 101044 and not afterU45(matchData.entryTimestamp) then return true end
+        if matchData.api == 101045 and afterU45(matchData.entryTimestamp) then return true end
+
+        matchData.api = afterU45(matchData.entryTimestamp) and 101045 or 101044
+
+        return true
+    end
+
+    UpdateToVersion(svTable, 1108000, function(sv, problems)
+        for key, data in pairs(sv) do
+            if key ~= 'version' and type(key) == 'string' then
+                Log('Updating %s matches', key)
+                for matchId, matchData in ipairs(data) do
+                    if not deleteCharacterId(matchData) then problems:AddProblemWithMatchId(matchId, 'deleteCharacterIdFailed') end
+                    if not setApiVersion(matchData) then problems:AddProblemWithMatchId(matchId, 'api version not added') end
+                end
+            end
+        end
+    end)
+
+    local function deleteZoneIndexAndName(matchData)
+        matchData.zoneName = nil
+        matchData.zoneIndex = nil
+
+        return true
+    end
+
+    UpdateToVersion(svTable, 1108001, function(sv, problems)
+        for key, data in pairs(sv) do
+            if key ~= 'version' and type(key) == 'string' then
+                Log('Updating %s matches', key)
+                for matchId, matchData in ipairs(data) do
+                    if not deleteZoneIndexAndName(matchData) then
+                        problems:AddProblemWithMatchId(matchId, 'deleteZoneIndexAndNameFailed')
+                    end
+                end
+            end
+        end
+    end)
+
+    local function deleteMatchesWithEmptyFirstRound(matchData)
+        if matchData.rounds and matchData.rounds[1] and matchData.rounds[1].players and #matchData.rounds[1].players > 0 then return true end
+    end
+
+    UpdateToVersion(svTable, 1108002, function(sv, problems)
+        for key, data in pairs(sv) do
+            if key ~= 'version' and type(key) == 'string' then
+                Log('Updating %s matches', key)
+                local matchesToDelete = {}
+
+                for matchId, matchData in ipairs(data) do
+                    if not deleteMatchesWithEmptyFirstRound(matchData) then
+                        problems:AddProblemWithMatchId(matchId, 'deletedBecauseFirstRoundEmpty')
+                        table.insert(matchesToDelete, matchId)
+                    end
+                end
+
+                Log('Deleting %d matches', #matchesToDelete)
+
+                table.sort(matchesToDelete, function(a, b) return a > b end)
+
+                for _, matchId in ipairs(matchesToDelete) do
+                    table.remove(data, matchId)
+                end
+            end
+        end
+    end)
+
+    UpdateToVersion(svTable, 1108003, function(sv, problems)
+        for key, data in pairs(sv) do
+            if key ~= 'version' and type(key) == 'string' then
+                Log('Updating %s matches', key)
+                for matchId = 1, #data do
+                    if type(data[matchId]) == 'table' then
+                        local success, result = pcall(PackMatch, data[matchId])
+                        if success then
+                            data[matchId] = result
                         else
-                            return
+                            problems:AddProblemWithMatchId(matchId, 'failedToPack')
+                            Log(result)
                         end
                     else
-                        return
+                        problems:AddProblemWithMatchId(matchId, 'notATable')
                     end
                 end
             end
-
-            return true
         end
+    end)
 
-        local function afterU45(timestamp)
-            return 1741597200 <= timestamp  -- Mon Mar 10 2025 09:00:00 GMT+0000
-        end
-
-        local function setApiVersion(matchData)
-            if not matchData.entryTimestamp then return end
-
-            if matchData.api == 101044 and not afterU45(matchData.entryTimestamp) then return true end
-            if matchData.api == 101045 and afterU45(matchData.entryTimestamp) then return true end
-
-            matchData.api = afterU45(matchData.entryTimestamp) and 101045 or 101044
-
-            return true
-        end
-
-        if svTable.version < 1108000 then
-            svProblemsTable[1108000] = {}
-            problems = svProblemsTable[1108000]
-
-            for key, data in pairs(svTable) do
-                if key ~= 'version' and type(key) == 'string' then
-                    Log('Updating %s matches', key)
-                    for matchId, matchData in ipairs(data) do
-                        if not deleteCharacterId(matchData) then handleProblem(matchId, 'deleteCharacterIdFailed') end
-                        if not setApiVersion(matchData) then handleProblem(matchId, 'api version not added') end
-                    end
-                end
-            end
-
-            svTable.version = 1108000
-            Log('Bumped to %d', svTable.version)
-        end
+    local function addTeamType(match)
+        local NUM_TEAMS = 2  -- 2 there were no 4x3 matches back then
+        match.teamType = getTeamType(match.lfgActivityId, match.teamSize, NUM_TEAMS)
     end
 
-    do
-        local function deleteZoneIndexAndName(matchData)
-            matchData.zoneName = nil
-            matchData.zoneIndex = nil
-
-            return true
-        end
-
-        if svTable.version < 1108001 then
-            svProblemsTable[1108001] = {}
-            problems = svProblemsTable[1108001]
-
-            for key, data in pairs(svTable) do
-                if key ~= 'version' and type(key) == 'string' then
-                    Log('Updating %s matches', key)
-                    for matchId, matchData in ipairs(data) do
-                        if not deleteZoneIndexAndName(matchData) then handleProblem(matchId, 'deleteZoneIndexAndNameFailed') end
-                    end
-                end
-            end
-
-            svTable.version = 1108001
-            Log('Bumped to %d', svTable.version)
-        end
-    end
-
-    do
-        local function deleteMatchesWithEmptyFirstRound(matchData)
-            if matchData.rounds and matchData.rounds[1] and matchData.rounds[1].players and #matchData.rounds[1].players > 0 then return true end
-        end
-
-        if svTable.version < 1108002 then
-            svProblemsTable[1108002] = {}
-            problems = svProblemsTable[1108002]
-
-            for key, data in pairs(svTable) do
-                if key ~= 'version' and type(key) == 'string' then
-                    Log('Updating %s matches', key)
-                    local matchesToDelete = {}
-
-                    for matchId, matchData in ipairs(data) do
-                        if not deleteMatchesWithEmptyFirstRound(matchData) then
-                            handleProblem(matchId, 'deletedBecauseFirstRoundEmpty')
-                            table.insert(matchesToDelete, matchId)
-                        end
-                    end
-
-                    Log('Deleting %d matches', #matchesToDelete)
-
-                    table.sort(matchesToDelete, function(a, b) return a > b end)
-
-                    for _, matchId in ipairs(matchesToDelete) do
-                        table.remove(data, matchId)
-                    end
-                end
-            end
-
-            svTable.version = 1108002
-            Log('Bumped to %d', svTable.version)
-        end
-    end
-
-    ---[[
-    do
-        if svTable.version < 1108003 then
-            svProblemsTable[1108003] = {}
-            problems = svProblemsTable[1108003]
-
-            for key, data in pairs(svTable) do
-                if key ~= 'version' and type(key) == 'string' then
-                    Log('Updating %s matches', key)
-                    for matchId = 1, #data do
-                        if type(data[matchId]) == 'table' then
-                            local success, result = pcall(PackMatch, data[matchId])
-                            if success then
-                                data[matchId] = result
-                            else
-                                -- handleProblem(matchId, ('failedToPack: %s'):format(result))
-                                handleProblem(matchId, 'failedToPack')
-                                Log(result)
-                            end
+    UpdateToVersion(svTable, 1108004, function(sv, problems)
+        for key, data in pairs(sv) do
+            if key ~= 'version' and type(key) == 'string' then
+                Log('Updating %s matches', key)
+                for matchId = 1, #data do
+                    if type(data[matchId]) == 'table' then
+                        addTeamType(data[matchId])
+                        local success, result = pcall(PackMatch, data[matchId])
+                        if success then
+                            data[matchId] = result
                         else
-                            handleProblem(matchId, 'notATable')
+                            problems:AddProblemWithMatchId(matchId, 'failedToPack')
+                            Log(result)
+                        end
+                    else
+                        local success, result = pcall(UnpackMatch, data[matchId])
+                        if not success then
+                            problems:AddProblemWithMatchId(matchId, 'failed to unpack previously packed match')
+                            Log(result)
                         end
                     end
                 end
             end
-
-            svTable.version = 1108003
-            Log('Bumped to %d', svTable.version)
         end
-    end
-    --]]
+    end)
 
-    ---[[
-    do
-        local function addTeamType(match)
-            match.teamType = getTeamType(match.lfgActivityId, match.teamSize)
-        end
-
-        if svTable.version < 1108004 then
-            svProblemsTable[1108004] = {}
-            problems = svProblemsTable[1108004]
-
-            for key, data in pairs(svTable) do
-                if key ~= 'version' and type(key) == 'string' then
-                    Log('Updating %s matches', key)
-                    for matchId = 1, #data do
-                        if type(data[matchId]) == 'table' then
-                            addTeamType(data[matchId])
-                            local success, result = pcall(PackMatch, data[matchId])
-                            if success then
-                                data[matchId] = result
-                            else
-                                handleProblem(matchId, 'failedToPack')
-                                Log(result)
-                            end
+    UpdateToVersion(svTable, 1120000, function(sv, problems)
+        for key, data in pairs(sv) do
+            if key ~= 'version' and type(key) == 'string' then
+                Log('Updating %s matches', key)
+                for matchId = 1, #data do
+                    if type(data[matchId]) == 'table' then
+                        local success, result = pcall(PackMatch, data[matchId], MatchSchema_2)
+                        if success then
+                            data[matchId] = result
                         else
-                            local success, result = pcall(UnpackMatch, data[matchId])
-                            if not success then
-                                handleProblem(matchId, 'failed to unpack previously packed match')
-                                Log(result)
-                            end
+                            problems:AddProblemWithMatchId(matchId, 'failed to pack match')
+                            Log(result)
                         end
-                    end
-                end
-            end
-
-            svTable.version = 1108004
-            Log('Bumped to %d', svTable.version)
-        end
-    end
-    --]]
-
-    do
-        local v = 1120000
-        if svTable.version < v then
-            svProblemsTable[v] = {}
-            problems = svProblemsTable[v]
-
-            for key, data in pairs(svTable) do
-                if key ~= 'version' and type(key) == 'string' then
-                    Log('Updating %s matches', key)
-                    for matchId = 1, #data do
-                        if type(data[matchId]) == 'table' then
-                            local success, result = pcall(PackMatch, data[matchId], MatchSchema_2)
-                            if success then
-                                data[matchId] = result
-                            else
-                                handleProblem(matchId, 'failed to pack match')
-                                Log(result)
-                            end
+                    else
+                        local success, result = pcall(LDP.Repack, data[matchId], MatchSchema_1, MatchSchema_2, ENCODE_BASE)
+                        if success then
+                            data[matchId] = result
                         else
-                            local success, result = pcall(LDP.Repack, data[matchId], MatchSchema_1, MatchSchema_2, ENCODE_BASE)
-                            if success then
-                                data[matchId] = result
-                            else
-                                handleProblem(matchId, 'failed to repack')
-                                Log(result)
-                            end
+                            problems:AddProblemWithMatchId(matchId, 'failed to repack')
+                            Log(result)
                         end
                     end
                 end
             end
-
-            svTable.version = v
-            Log('Bumped to %d', v)
         end
+    end)
+
+    local function getNumTeams(matchData)
+        local players = matchData.rounds[1].players
+        for _, player in ipairs(players) do
+            if player.battlegroundTeam == 3 then
+                return 3
+            end
+        end
+
+        return 2
     end
+
+    UpdateToVersion(svTable, 1151000, function(sv, problems)
+        for key, data in pairs(sv) do
+            if key ~= 'version' and type(key) == 'string' then
+                Log('Updating %s matches', key)
+                for matchId = 1, #data do
+                    local matchData
+                    if type(data[matchId]) == 'table' then
+                        matchData = data[matchId]
+                    else
+                        local success, result = pcall(LDP.Unpack, data[matchId], MatchSchema_2, ENCODE_BASE)
+                        if success then
+                            matchData = result
+                        else
+                            problems:AddProblemWithMatchId(matchId, 'failed to unpack pre 1.5.1 data')
+                            Log(result)
+                        end
+                    end
+
+                    if matchData then
+                        local numTeams = getNumTeams(matchData)
+                        if numTeams == 3 then
+                            if matchData.teamType == TEAM_TYPE_4_SOLO then
+                                matchData.teamType = TEAM_TYPE_4_3_SOLO
+                            elseif matchData.teamType == TEAM_TYPE_4_GROUP then
+                                matchData.teamType = TEAM_TYPE_4_3_GROUP
+                            else
+                                problems:AddProblemWithMatchId(matchId, ('unknown situation, 3 teams, teamType %d'):format(matchData.teamType))
+                            end
+                        end
+                        local success, result = pcall(LDP.Pack, matchData, MatchSchema_3, ENCODE_BASE)
+                        if success then
+                            data[matchId] = result
+                        else
+                            problems:AddProblemWithMatchId(matchId, 'failed to pack match')
+                            Log(result)
+                        end
+                    end
+                end
+            end
+        end
+    end)
 end
 
 
@@ -1132,8 +1180,7 @@ function IMP_STATS_InitializeNewMatchManager(settings, characterSettings)
     ImpressiveStatsMatchesData = ImpressiveStatsMatchesData or {}
     ImpressiveStatsMatchesData[server] = ImpressiveStatsMatchesData[server] or {}
 
-    ImpressiveStatsMatchesUpgradesProblems = ImpressiveStatsMatchesUpgradesProblems or {}
-    UpdateSavedVariablesVersion(ImpressiveStatsMatchesData, ImpressiveStatsMatchesUpgradesProblems)
+    UpdateSavedVariablesVersion(ImpressiveStatsMatchesData)
 
     IMP_STATS_MATCHES_MANAGER = MatchManager(ImpressiveStatsMatchesData[server])
 

@@ -393,16 +393,26 @@ function addon:AddSelfToBattlegroundMatchesScene()
     local sceneName = 'IMP_STATS_MENU' .. SI_IMP_PVP_METER_BATTLEGROUNS_TAB_TITLE .. 'Scene'
     local scene = SCENE_MANAGER.scenes[sceneName]
 
-    if not scene then return end
+    -- if not scene then return end
 
-    local fragment = ZO_SimpleSceneFragment:New(self.control)
-    scene:AddFragment(fragment)
+    -- local fragment = ZO_SimpleSceneFragment:New(self.control)
+    -- scene:AddFragment(fragment)
 
-    -- self.fragment = fragment
+    -- -- self.fragment = fragment
 
-    fragment:RegisterCallback('StateChange', function(oldState, newState)
-        if newState == ZO_STATE.SHOWING then
-            self:Update()
+    -- fragment:RegisterCallback('StateChange', function(oldState, newState)
+    --     if newState == ZO_STATE.SHOWING then
+    --         self:Update()
+    --     end
+    -- end)
+
+    self.control:SetHandler('OnEffectivelyShown', function()
+        self:Update()
+    end)
+
+    scene:RegisterCallback('StateChange', function(oldState, newState)
+        if newState == ZO_STATE.HIDING then
+            self.control:SetHidden(true)
         end
     end)
 end
