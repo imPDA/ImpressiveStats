@@ -211,8 +211,12 @@ function settings:Initialize(addon)
             type = 'checkbox',
             name = '|cFFA500Debug mode|r',
             getFunc = function() return sv.duels.debugging end,
-            setFunc = function(value) sv.duels.debugging = value end,
-            requiresReload = true,
+            setFunc = function(value)
+                sv.duels.debugging = value
+                IMP_STATS_Duels_UI.debugging = value
+                IMP_STATS_Duels_UI:UpdateUI()
+            end,
+            -- requiresReload = true,
         }
     end
 

@@ -1,3 +1,7 @@
+local zo_strformat = zo_strformat
+
+-- ----------------------------------------------------------------------------
+
 local addon = {}
 
 addon.name = 'IMP_STATS_Duels_UI'
@@ -34,16 +38,6 @@ function DuelsStats:New(o)
 end
 
 function DuelsStats:Clear()
-    -- self.current = {
-    --     totalDuels = 0,
-    --     totalWon = 0,
-    --     totalLost = 0,
-    --     totalDamageDone = 0,
-    --     totalDamageTaken = 0,
-    --     totalHealingTaken = 0,
-    --     totalDamageShielded = 0,
-    --     totalDuration = 0,
-    -- }
     self.totalDuels = 0
     self.totalWon = 0
     self.totalLost = 0
@@ -91,8 +85,8 @@ local function GetHumanUnderstandableResult(result, wasLocalPlayersResult)
 end
 --#endregion HUMAN UNDERSTANDABLE RESULT
 
-function DuelsStats:AddDuel(index, data)
-    local duelIndex, duelData = index, data
+function DuelsStats:AddDuel(duelData)
+    local duelIndex = duelData.index
 
     if self.lastProceededIndex and duelIndex <= self.lastProceededIndex then return end
     self.lastProceededIndex = duelIndex
@@ -104,100 +98,15 @@ function DuelsStats:AddDuel(index, data)
     self.totalDamageShielded    = self.totalDamageShielded  + (duelData.damageShielded  or 0)
     self.totalDuration          = self.totalDuration        + (duelData.duration        or 0)
 
-    local result = GetHumanUnderstandableResult(duelData.result, duelData.wasLocalPlayersResult)
-
-    if result == WIN then
+    if duelData.result == WIN then
         self.totalWon = self.totalWon + 1
-    elseif result == LOSS then
+    elseif duelData.result == LOSS then
         self.totalLost = self.totalLost + 1
     end
 end
 --#endregion
 
 --#region IMP STATS DUELS UI
-local SORTABLE_HEADERS = {
-    ['Index'] = 'index',
-    ['Duration'] = 'duration',
-    ['DamageDone'] = 'damageDone',
-    ['DamageTaken'] = 'damageTaken',
-    ['HealingTaken'] = 'healingTaken',
-    ['DamageShielded'] = 'damageShielded',
-}
-
-local IS_LESS_THAN = -1
-local IS_EQUAL_TO = 0
-local IS_GREATER_THAN = 1
-
-local function SortingFunction(left, right, sortingKey, sortingOrder, tiebreaker)
-    local value1, value2 = left[sortingKey], right[sortingKey]
-
-    -- Log(value1, value2)
-
-    local compareResult
-    if value1 < value2 then
-        compareResult = IS_LESS_THAN
-    elseif value1 > value2 then
-        compareResult = IS_GREATER_THAN
-    else
-        compareResult = IS_EQUAL_TO
-    end
-
-    if compareResult == IS_EQUAL_TO then
-        if tiebreaker then
-            return SortingFunction(left, right, tiebreaker)
-        end
-    else
-        if sortingOrder == ZO_SORT_ORDER_UP then
-            return compareResult == IS_LESS_THAN
-        end
-
-        return compareResult == IS_GREATER_THAN
-    end
-end
-
-function addon:ApplySorting(preventCommit)
-    if not self.currentSortingKey then return end
-
-    Log('[B] Sorting requested by %s (%s)', self.currentSortingKey, tostring(self.currentSortOrder))
-
-    local scrollData = ZO_ScrollList_GetDataList(self.listControl)
-    assert(scrollData ~= nil, 'Scroll data is nil')
-
-    table.sort(scrollData, function(entry1, entry2)
-        local left, right = self.dataRows[entry1.data.index], self.dataRows[entry2.data.index]  -- TODO: duels or dataRows? Remake to use duels instead 
-        return SortingFunction(left, right, self.currentSortingKey, self.currentSortOrder)
-    end)
-
-    if not preventCommit then
-        ZO_ScrollList_Commit(self.listControl)
-    end
-end
-
-function addon:InitializeSortingHeaders()
-    local headersControl = self.duelsControl:GetNamedChild('Listing'):GetNamedChild('Header')
-
-    local function InitializeSortableHeader(headerName)
-        -- Log('Initializing sortable header `%s`', headerName)
-        local header = headersControl:GetNamedChild(headerName)
-        header:SetMouseEnabled(true)
-        header:SetHandler('OnMouseDown', function()
-            local sortingKey = SORTABLE_HEADERS[headerName]
-            if self.currentSortingKey == sortingKey then
-                self.currentSortOrder = not self.currentSortOrder
-                -- Log('Changing sort order')
-            else
-                self.currentSortOrder = ZO_SORT_ORDER_UP
-                self.currentSortingKey = sortingKey
-            end
-            self:ApplySorting()
-        end)
-    end
-
-    for headerName, _ in pairs(SORTABLE_HEADERS) do
-        InitializeSortableHeader(headerName)
-    end
-end
-
 function addon:UpdateStatsControl()
     local duelsWithResult = self.stats.totalWon + self.stats.totalLost
 
@@ -223,155 +132,110 @@ function addon:UpdateStatsControl()
 end
 
 -- TODO: make color uniforme and global
+local ALPHA = 0.6
 local COLOR_OF_RESULT = {
-    [WIN] = {0, 1, 0, 1},
-    [LOSS] = {1, 0, 0, 1},
-    [PLAYER_FORFEIT] = {35/255, 35/255, 35/255, 1},
-    [OPPONENT_FORFEIT] = {75/255, 75/255, 75/255, 1},
+    [WIN]              = {     0,      1,      0, ALPHA},
+    [LOSS]             = {     1,      0,      0, ALPHA},
+    [PLAYER_FORFEIT]   = {35/255, 35/255, 35/255, ALPHA},
+    [OPPONENT_FORFEIT] = {75/255, 75/255, 75/255, ALPHA},
 }
 
 function addon.GetName(data)
     assert(false, 'Must be owerritten!')
 end
 
-function addon:CreateScrollListDataType()
-    local function LayoutRow(rowControl, data, scrollList)
-        local result = UNDEFINED
-        if data.result then
-            -- TODO: make human understandable result on duel save
-            result = GetHumanUnderstandableResult(data.result, data.wasLocalPlayersResult)
-            if result ~= UNDEFINED then
-                GetControl(rowControl, 'BG'):SetHidden(false)
-                GetControl(rowControl, 'BG'):SetColor(unpack(COLOR_OF_RESULT[result]))
-            end
-        end
-        GetControl(rowControl, 'Index'):SetText(data.index)
+-- local function HideWarning()
+--     GetControl(IMP_STATS_DUELS, 'Warning'):SetHidden(true)
+-- end
 
-        local duration = IMP_STATS_SHARED.SecondsToTime(data.duration or 0)
-        GetControl(rowControl, 'Duration'):SetText(duration)
+-- local function ShowWarning()
+--     GetControl(IMP_STATS_DUELS, 'Warning'):SetHidden(false)
+-- end
 
-        local playerClassIcon = data.playerClass and ZO_GetClassIcon(data.playerClass) or 'EsoUI/Art/Icons/icon_missing.dds'
-        local playerRaceIcon = data.playerRace and IMP_STATS_SHARED.GetRaceIcon(data.playerRace) or 'EsoUI/Art/Icons/icon_missing.dds'
-        GetControl(rowControl, 'PlayerClass'):GetNamedChild('ClassIcon'):SetTexture(playerClassIcon)
-        GetControl(rowControl, 'PlayerRace'):GetNamedChild('RaceIcon'):SetTexture(playerRaceIcon)
-        GetControl(rowControl, 'PlayerCharacterName'):SetText(zo_strformat('<<1>>', data.playerName))
+function addon:_passInternalFilters(duelIndex)
+    local duel = self.dataRows[duelIndex]
 
-        local opponentClassIcon = data.opponentClass and ZO_GetClassIcon(data.opponentClass) or 'EsoUI/Art/Icons/icon_missing.dds'
-        local opponentRaceIcon = data.opponentRace and IMP_STATS_SHARED.GetRaceIcon(data.opponentRace) or 'EsoUI/Art/Icons/icon_missing.dds'
-        GetControl(rowControl, 'OpponentClass'):GetNamedChild('ClassIcon'):SetTexture(opponentClassIcon)
-        GetControl(rowControl, 'OpponentRace'):GetNamedChild('RaceIcon'):SetTexture(opponentRaceIcon)
-        GetControl(rowControl, 'OpponentCharacterName'):SetText(zo_strformat('<<1>>', data.opponentName))
-
-        GetControl(rowControl, 'DamageDone'):SetText(IMP_STATS_SHARED.FormatNumber(data.damageDone or 0))
-        GetControl(rowControl, 'DamageTaken'):SetText(IMP_STATS_SHARED.FormatNumber(data.damageTaken or 0))
-        GetControl(rowControl, 'HealingTaken'):SetText(IMP_STATS_SHARED.FormatNumber(data.healingTaken or 0))
-        GetControl(rowControl, 'DamageShielded'):SetText(IMP_STATS_SHARED.FormatNumber(data.damageShielded or 0))
-
-        GetControl(rowControl, 'Build'):SetHidden(data.build == nil)
-
-        -- rowControl:SetHandler('OnMouseUp', function()
-        --     ZO_ScrollList_MouseClick(scrollList, rowControl)
-        -- end)
-
-        local tooltip = ''
-
-        if data.startTimestamp then
-            local formattedTime = os.date('%d.%m.%Y %H:%M', data.startTimestamp)
-            tooltip = tooltip .. formattedTime
-        end
-        tooltip = tooltip .. '\n'
-        tooltip = tooltip .. zo_iconFormat(playerClassIcon) .. ' ' .. GetRaceName(0, data.playerRace)
-        -- tooltip = tooltip .. '\n\n|cFF0000VS|r\n\n'
-        tooltip = tooltip .. ' |cFF0000VS|r '
-        tooltip = tooltip .. zo_iconFormat(opponentClassIcon) .. ' ' .. GetRaceName(0, data.opponentRace)
-        tooltip = tooltip .. '\n'
-        tooltip = tooltip .. 'Duration: ' .. duration
-
-        tooltip = tooltip .. '\n'
-        tooltip = tooltip .. 'Result: ' .. DUEL_RESULT_TO_STRING[result]
-
-        rowControl:SetHandler('OnMouseEnter', function() ZO_Tooltips_ShowTextTooltip(rowControl, LEFT, tooltip) end)
-        rowControl:SetHandler('OnMouseExit', function() ZO_Tooltips_HideTextTooltip() end)
+    if not string.find(duel.opponentNormalizedName, self.selections.opponentName) then
+        return false
     end
 
-	local control = self.listControl
-	local typeId = 1
-	local templateName = 'IMP_STATS_DuelSummaryRow'  -- TODO: change
-	local height = 32
-	local setupFunction = LayoutRow
-	local hideCallback = nil
-	local dataTypeSelectSound = nil
-	local resetControlCallback = nil
-
-	ZO_ScrollList_AddDataType(control, typeId, templateName, height, setupFunction, hideCallback, dataTypeSelectSound, resetControlCallback)
-
-    -- local selectTemplate = 'ZO_ThinListHighlight'
-	-- local selectCallback = nil
-	-- ZO_ScrollList_EnableSelection(control, selectTemplate, selectCallback)
-end
-
-function addon:AddFilter(filterCallback)
-    table.insert(self.filters, filterCallback)
-end
-
-function addon:PassFilters(data)
-    for _, filter in ipairs(self.filters) do
-        if not filter(data) then return end
+    if not (self.debugging or self.selections.characters[duel.playerCharacterId]) then
+        return false
     end
 
     return true
 end
 
-local function HideWarning()
-    GetControl(IMP_STATS_DUELS, 'Warning'):SetHidden(true)
-end
+function addon:UpdateUI()
+    local data = {}
+    self.stats:Clear()
 
-local function ShowWarning()
-    GetControl(IMP_STATS_DUELS, 'Warning'):SetHidden(false)
-end
+    for i = 1, #self.dataRows do
+        if self:_passInternalFilters(i) then
+            local duel = self.dataRows[i]
 
-local function UpdateScrollListControl(control, data, rowType)
-	-- local dataCopy = ZO_DeepTableCopy(data)
-    local dataCopy = data
-	local dataList = ZO_ScrollList_GetDataList(control)
+            data[#data+1] = {
+                duel.index,
+                duel.duration or 0,
+                duel.playerClass,
+                duel.playerRace,
+                duel.playerName,
+                duel.opponentClass,
+                duel.opponentRace,
+                duel.opponentName,
+                duel.damageDone or 0,
+                duel.damageTaken or 0,
+                duel.healingTaken or 0,
+                duel.damageShielded or 0,
+                duel.build ~= nil,
+                duel.result,
+            }
 
-	ZO_ScrollList_Clear(control)
-
-    local task = LibAsync:Create('UpdateDuelsScrollList')
-
-    local function CreateAndAddDataEntry(index)
-        local value = dataCopy[index]
-        local entry = ZO_ScrollList_CreateDataEntry(rowType, value)
-
-		table.insert(dataList, entry)
+            self.stats:AddDuel(duel)
+        end
     end
 
-	-- table.sort(dataList, function(a,b) return a.data.index > b.data.index end)
+    self.table:Update(1, data)
 
-    task:For(#dataCopy, 1, -1):Do(CreateAndAddDataEntry):Then(function() ZO_ScrollList_Commit(control) end):Then(HideWarning)
-end
-
-function addon:UpdateUI()
-    local SOME_ID = 1
-    UpdateScrollListControl(self.listControl, self.dataRows, SOME_ID)
     self:UpdateStatsControl()
 
     Log('UI updated')
 end
 
+local function _isGoodData(duelData)
+    if not duelData.player
+    or not duelData.damageDone
+    or not duelData.damageTaken
+    or not duelData.healingTaken
+    or not duelData.damageShilded
+    then  -- or not duelData.opponent
+        return
+    end
+
+    return true
+end
+
 -- TODO: made as in bgs
 function addon:Update()
-    if #self.duels > 60000 then ShowWarning() end
+    -- if #self.duels > 60000 then ShowWarning() end
 
     self.dataRows = {}
-    self.stats:Clear()
 
-    local function HandleDuelData(duelIndex, duelData)
-        if not self:PassFilters(duelData) then return end
+    local function HandleDuelData(duelId, duelData)
+        if not _isGoodData(duelData) then return end
 
-        table.insert(self.dataRows, {
-            index = #self.dataRows + 1,
-            result = duelData.result,
+        local opponentNormalizedName = IMP_NORMALIZE_NAMES.Normalize(self.GetName(duelData.opponent))
+
+        local result = UNDEFINED
+
+        if duelData.result then
+            result = GetHumanUnderstandableResult(duelData.result, duelData.wasLocalPlayersResult)
+        end
+
+        local nextIndex = #self.dataRows + 1
+        self.dataRows[nextIndex] = {
+            index = nextIndex,
+            result = result,
             wasLocalPlayersResult = duelData.wasLocalPlayersResult,
             playerClass =  duelData.player.classId,
             playerRace = duelData.player.raceId,
@@ -385,29 +249,29 @@ function addon:Update()
             damageShielded = duelData.damageShilded,
             startTimestamp = duelData.timestamp,
             duration = duelData.duration,
-            trueIndex = duelIndex,  -- TODO: some workaround. As stated above, I should follow BG style in the future
+            duelId = duelId,  -- TODO: some workaround. As stated above, I should follow BG style in the future
             build = duelData.player.build,
-        })
-
-        self.stats:AddDuel(duelIndex, duelData)
+            opponentNormalizedName = opponentNormalizedName,
+            playerCharacterId = duelData.player.characterId,
+        }
     end
 
     local task = LibAsync:Create('UpdateDuelsDataRows')
 
     task:For(ipairs(self.duels)):Do(HandleDuelData)
-    :Then(function() self:ApplySorting(true) end)
     :Then(function() self:UpdateUI() end)
 
     Log('Updated')
 end
 
 function addon:CreateControls()
-    local duelsControl = IMP_STATS_DUELS
+    local tlc = IMP_STATS_DUELS
+    assert(tlc ~= nil, 'Duels control was not created')
+    self.tlc = tlc
 
-    assert(duelsControl ~= nil, 'Duels control was not created')
+    self:_createTable()
 
-    local listControl = duelsControl:GetNamedChild('Listing'):GetNamedChild('ScrollableList')
-    local statsControl = duelsControl:GetNamedChild('StatsBlock')
+    local statsControl = tlc:GetNamedChild('StatsBlock')
 
     local function OnSearchTextChanged(editBox, field)
         local newText = string.lower(editBox:GetText())
@@ -417,88 +281,173 @@ function addon:CreateControls()
         if newText == self.selections[field] then return end
 
         self.selections[field] = newText
-        self:Update()
+        self:UpdateUI()
     end
 
-    local oppSearchBox = duelsControl:GetNamedChild('OpponentSearchBox')
+    local oppSearchBox = tlc:GetNamedChild('OpponentSearchBox')
     oppSearchBox:SetHandler('OnTextChanged', function(editBox) OnSearchTextChanged(editBox, 'opponentName') end)
 
-    self.duelsControl = duelsControl
-    self.listControl = listControl
+    self.duelsControl = tlc
     self.statsControl = statsControl
-end
-
-local function SelectAllElements(filter)
-    for i, item in ipairs(filter.m_sortedItems) do
-        filter:SelectItem(item, true)
-    end
 end
 
 addon.InitializePlayerCharactersFilter = IMP_STATS_SHARED.InitializePlayerCharactersFilter
 
+function addon:_createTable()
+	local Button = LibScrollList.Button
+	local Column = LibScrollList.Column
+	local Table = LibScrollList.Table
+
+    local buildButtonStyle = IMP_STATS_TABLESTYLES.buildButtonStyle
+
+    local BuildButton = Button(
+        buildButtonStyle,
+        function(ctrl, state, locked)
+            if state == BSTATE_DISABLED then
+                ctrl:SetHidden(true)
+            else
+                ctrl:SetHidden(false)
+                ctrl:SetState(BSTATE_NORMAL, locked)
+            end
+        end,
+        function(ctrl)
+            self:LayoutBuildFor(ctrl:GetParent():GetParent())
+        end
+    )
+
+	local FC = IMP_STATS_TABLESTYLES.Formatted.Cell
+	local TC = IMP_STATS_TABLESTYLES.Text.Cell
+	local THU = IMP_STATS_TABLESTYLES.Text.HeaderUpper
+
+	local ClassIcon = IMP_STATS_TABLESTYLES.ClassIcon
+	local RaceIcon = IMP_STATS_TABLESTYLES.RaceIcon
+	local Time = IMP_STATS_TABLESTYLES.Time.Cell.Right
+
+	local SORTABLE = true
+	local columns = {
+        Column('Index', 	   40,  0, TC.Right,       '###', THU.Right,      SORTABLE),
+		Column('Duration',     50, 10, Time,          'Time', THU.Right,      SORTABLE),
+		Column('Class', 	   32, 10, ClassIcon,        nil, THU.Center, not SORTABLE),
+		Column('Race', 	       32,  0, RaceIcon,         nil, THU.Center, not SORTABLE),
+		Column('Name',  	  170,  4, TC.Left,     'Player', THU.Left,   not SORTABLE),
+        Column('OppClass', 	   32,  0, ClassIcon,        nil, THU.Center, not SORTABLE),
+		Column('OppRace', 	   32,  0, RaceIcon,         nil, THU.Center, not SORTABLE),
+		Column('OppName',  	  170,  4, TC.Left,   'Opponent', THU.Left,   not SORTABLE),
+        Column('DamageDone',   70,  0, FC.Center,     'Done', THU.Center,     SORTABLE),
+        Column('Taken',        70,  0, FC.Center,    'Taken', THU.Center,     SORTABLE),
+		Column('HealignDone',  70,  0, FC.Center,     'Heal', THU.Center,     SORTABLE),
+        Column('Shielded',     70,  0, FC.Center,   'Shield', THU.Center,     SORTABLE),
+        Column('Build', 	   32,  0, BuildButton, 	 nil, THU.Center, not SORTABLE),
+    }
+
+	local WITH_HEADERS = true
+    local myTable = Table(WITH_HEADERS)
+
+    local tooltipTable = {}
+
+    local function AddLine(line)
+        tooltipTable[#tooltipTable+1] = line or ''
+    end
+
+    local function ClearTooltip()
+        ZO_ClearNumericallyIndexedTable(tooltipTable)
+    end
+
+    local RACE_CLASS_ROW = '%s / %s'
+
+    local function BuildTooltip(rowData)
+        ClearTooltip()
+
+        local index = rowData[1]
+        local data = self.dataRows[index]
+
+        if data.startTimestamp then
+            local formattedTime = os.date('%d.%m.%Y %H:%M', data.startTimestamp)
+            AddLine(formattedTime)
+            AddLine()
+        end
+        AddLine(data.playerName)
+        AddLine(RACE_CLASS_ROW:format(GetRaceName(0, rowData[4]), GetClassName(nil, rowData[3])))
+        AddLine('      |cFF0000VS|r ')
+        AddLine(data.opponentName)
+        AddLine(RACE_CLASS_ROW:format(GetRaceName(0, rowData[7]), GetClassName(nil, rowData[6])))
+        AddLine()
+        AddLine('Duration: ' .. rowData[2] .. 's')
+        AddLine()
+        AddLine('Result: ' .. DUEL_RESULT_TO_STRING[rowData[14]])
+
+        return table.concat(tooltipTable, '\n')
+    end
+
+    local function showTooltip(rowControl)
+        local tooltipText = BuildTooltip(rowControl.dataEntry.data)
+        ZO_Tooltips_ShowTextTooltip(rowControl, LEFT, tooltipText)
+    end
+
+	local postCreateCallback = function(rowControl)
+		local background = CreateControlFromVirtual('$(parent)Background', rowControl, 'IMP_TallListSelectedHighlight')
+        background:SetAlpha(0.6)
+
+        -- rowControl:SetHandler('OnMouseDown', onMouseDown)
+
+        -- local scrollList = rowControl:GetParent():GetParent()
+        -- ZO_ScrollList_EnableSelection(scrollList, 'ZO_ThinListHighlight', LayoutMatchRow)
+	    -- ZO_ScrollList_SetDeselectOnReselect(scrollList, true)
+
+        rowControl:SetHandler('OnMouseEnter', showTooltip)
+        rowControl:SetHandler('OnMouseExit', ZO_Tooltips_HideTextTooltip)
+	end
+	local postSetupCallback = function(rowControl, dataEntryData, scrollList)
+        local result = dataEntryData[14]
+        if result then
+            GetControl(rowControl, 'Background'):SetHidden(false)
+            GetControl(rowControl, 'Background'):SetColor(unpack(COLOR_OF_RESULT[result]))
+        else
+            GetControl(rowControl, 'Background'):SetHidden(true)
+        end
+	end
+    myTable:AddDataType(1, columns, 32, postCreateCallback, postSetupCallback)
+
+	myTable.defaultSortingCriteria = {
+		{columnIndex = 1, order = ZO_SORT_ORDER_DOWN},
+	}
+
+	local REPLACE = true
+    local scrollControl = myTable:Create('Listing', self.tlc, REPLACE)
+    -- scrollControl:SetDimensions(0, 0)
+
+	self.table = myTable
+end
+
 function addon:Initialize(naming, selectedCharacters, debugging)
     self.duels = IMP_STATS_Duels_MANAGER.duels
     self.stats = DuelsStats:New()
+    self.debugging = debugging
 
-    local buffer = {}
+    local nameBuffer = {}
     local NAMINGS = {
         [1] = function(data)
-            if not buffer[data.characterName] then
-                buffer[data.characterName] = zo_strformat('<<1>>', data.characterName)
+            if not nameBuffer[data.characterName] then
+                nameBuffer[data.characterName] = zo_strformat('<<1>>', data.characterName)
             end
-            return buffer[data.characterName]
+            return nameBuffer[data.characterName]
         end,
         [2] = function(data)
-            if not buffer[data.displayName] then
-                buffer[data.displayName] = data.displayName
+            if not nameBuffer[data.displayName] then
+                nameBuffer[data.displayName] = data.displayName
             end
-            return buffer[data.displayName]
+            return nameBuffer[data.displayName]
         end,
         [3] = function(data)
-            if not buffer[data.displayName] then
-                buffer[data.displayName] = zo_strformat('<<1>> (<<2>>)', data.displayName, data.characterName)
+            if not nameBuffer[data.displayName] then
+                nameBuffer[data.displayName] = zo_strformat('<<1>> (<<2>>)', data.displayName, data.characterName)
             end
-            return buffer[data.displayName]
+            return nameBuffer[data.displayName]
         end,
     }
     self.GetName = NAMINGS[naming]
 
     self:CreateControls()
-    self:InitializeSortingHeaders()
-    self:CreateScrollListDataType()
-
-    local function GoodDataFilter(duelData)
-        if not duelData.player
-        or not duelData.damageDone
-        or not duelData.damageTaken
-        or not duelData.healingTaken
-        or not duelData.damageShilded
-        then  -- or not duelData.opponent
-            return
-        end
-
-        return true
-    end
-    self:AddFilter(GoodDataFilter)
-
-    local function OpponentNameFilter(duelData)
-        if self.selections.opponentName == '' then return true end
-
-        local characterName = string.lower(duelData.opponent.characterName)
-        local displayName = string.lower(duelData.opponent.displayName)
-
-        if string.find(displayName, self.selections.opponentName) or string.find(characterName, self.selections.opponentName) then
-            return true
-        end
-    end
-    self:AddFilter(OpponentNameFilter)
-
-    local function PlayerCharactersFilter(duelData)
-        return self.selections.characters[duelData.player.characterId]
-    end
-    if not debugging then
-        self:AddFilter(PlayerCharactersFilter)
-    end
 
     self.selections.characters = selectedCharacters
     if IMP_STATS_SHARED.TableLength(self.selections.characters) < 1 then
@@ -511,47 +460,11 @@ end
 --#endregion
 
 function addon:LayoutBuildFor(row)
-    if not (row and row.dataEntry and row.dataEntry.data.trueIndex) then return end
-
-    local trueIndex = row.dataEntry.data.trueIndex
-
-    LibDataPacker_Build_LayoutShortBuild(self.duels[trueIndex].player.build)
+    if not (row and row.dataEntry and row.dataEntry.data[1]) then return end
+    local duelIndex = row.dataEntry.data[1]
+    LibDataPacker_Build_LayoutShortBuild(self.dataRows[duelIndex].build)
 end
 
 do
     IMP_STATS_Duels_UI = addon
 end
-
---[[
--- ZO_GetBattlegroundTeamIcon
-]]
-
---[[
-function ProcessSlashCommand(cmd)
-    Log('Command %s received', cmd)
-
-	if cmd == 'update' or cmd == 'u' then
-		addon:Update()
-    elseif cmd == 'x2' then
-        local len = #ImpressiveStatsDuelsData['EU']
-        local duels = ImpressiveStatsDuelsData['EU']
-        for i = 1, len do
-            duels[#duels+1] = duels[i]
-        end
-        Log('New lenght: %d', #duels)
-        addon:Update()
-    elseif cmd == 'one' then
-        local firstDuel = ZO_DeepTableCopy(ImpressiveStatsDuelsData['EU'][1])
-        ImpressiveStatsDuelsData['EU'] = {firstDuel}
-        addon:Update()
-    elseif cmd == ':2' then
-        local duels = ImpressiveStatsDuelsData['EU']
-        for i = #duels, zo_round(#duels/2), -1 do
-            ImpressiveStatsDuelsData['EU'][i] = nil
-        end
-        addon:Update()
-    end
-end
-
-SLASH_COMMANDS['/ipmd'] = ProcessSlashCommand
-]]

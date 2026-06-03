@@ -28,7 +28,10 @@ local function BuildCache(forceRebuild)
                 local playerCache = cachedPlayers[displayName] or {{},0,0,0,0,0}
                 cachedPlayers[displayName] = playerCache
 
-                playerCache[MATCHES][#playerCache[MATCHES]+1] = mi
+                local seenInMatches = playerCache[MATCHES]
+                if seenInMatches[#seenInMatches] ~= mi then  -- to prevent duplicates from 2+ round matches
+                    seenInMatches[#seenInMatches+1] = mi
+                end
                 playerCache[KILLS]      = playerCache[KILLS]    + player['kills']
                 playerCache[DEATHS]     = playerCache[DEATHS]   + player['deaths']
                 playerCache[ASSISTS]    = playerCache[ASSISTS]  + player['assists']
@@ -49,7 +52,6 @@ local addon = {
     filters = {
         displayName = nil,  -- always keep in lower case!
     },
-    updateStart = nil,
 }
 
 local function hex2rgb(hex)  -- TODO: define colors, make them not HEX
@@ -60,237 +62,76 @@ local function hex2rgb(hex)  -- TODO: define colors, make them not HEX
     return r / 255, g / 255, b / 255
 end
 
-function addon:CreateScrollListDataType()
-    -- local function BuildTooltip(rowControl)
-    --     local tooltip = ''
-    --     local data = rowControl.dataEntry.data
-    --     -- ...
-    --     return tooltip
-    -- end
+local function ShowRMBMenu(control, button)
+    if button ~= MOUSE_BUTTON_INDEX_RIGHT then return end
 
-    -- local function ShowTooltip(rowControl)
-    --     ZO_Tooltips_ShowTextTooltip(rowControl, LEFT, BuildTooltip(rowControl))
-    -- end
+    local data = control.dataEntry.data
 
-    local function ShowRMBMenu(control, button)
-        if button ~= MOUSE_BUTTON_INDEX_RIGHT then return end
+    ClearMenu()
 
-        local data = control.dataEntry.data
+    local categories = ImpressiveStatsPlayersSV.categories
+    local players = ImpressiveStatsPlayersSV.playerCategories
 
-        ClearMenu()
-
-        local categories = ImpressiveStatsPlayersSV.categories
-        local players = ImpressiveStatsPlayersSV.playerCategories
-
-        for categoryIndex, categoryData in ipairs(categories) do
-            local text = ('|c%s|t13:13:/art/fx/texture/whitesquare.dds:inheritcolor|t|r %s'):format(categoryData.color, categoryData.name)
-            AddCustomMenuItem(text, function()
-                local playerDisplayName = data[2]
-                players[playerDisplayName] = categoryIndex
-
-                -- GetControl(control, 'Mark'):SetHidden(false)
-                -- GetControl(control, 'Mark'):SetColor(hex2rgb(categoryData.color))
-
-                self:Update()
-            end)
-        end
-
-        AddCustomMenuItem('Clear category', function()
+    for categoryIndex, categoryData in ipairs(categories) do
+        local text = ('|c%s|t13:13:/art/fx/texture/whitesquare.dds:inheritcolor|t|r %s'):format(categoryData.color, categoryData.name)
+        AddCustomMenuItem(text, function()
             local playerDisplayName = data[2]
-            players[playerDisplayName] = nil
+            players[playerDisplayName] = categoryIndex
 
-            -- GetControl(control, 'Mark'):SetHidden(true)
-
-            self:Update()
+            addon.dirty = true  -- TODO: kinda don't like it
+            addon:Update()
         end)
-
-        ShowMenu()
     end
 
-    local function LayoutRow(rowControl, data, scrollList)
-        local damage = data[4]
-        local healing = data[5]
+    AddCustomMenuItem('Clear category', function()
+        local playerDisplayName = data[2]
+        players[playerDisplayName] = nil
 
-        -- if healing > 1000000 then
-        --     GetControl(rowControl, 'Mark'):SetHidden(false)
-        --     GetControl(rowControl, 'Mark'):SetColor(0, 0, 0.5)
-        -- else
-        --     GetControl(rowControl, 'Mark'):SetHidden(true)
-        -- end
+        addon.dirty = true  -- TODO: kinda don't like it
+        addon:Update()
+    end)
 
-        local categoryIndex = data[6]
-        if categoryIndex then
-            -- GetControl(rowControl, 'Mark'):SetHidden(false)
-            local categoryData = ImpressiveStatsPlayersSV.categories[categoryIndex]
-            GetControl(rowControl, 'Mark'):SetColor(hex2rgb(categoryData.color))
-        else
-            GetControl(rowControl, 'Mark'):SetColor(0.25, 0.25, 0.25)
-            -- GetControl(rowControl, 'Mark'):SetHidden(true)
-        end
-
-        -- GetControl(rowControl, 'Index'):SetText(rowControl.index)
-        GetControl(rowControl, 'Index'):SetText(data[1])
-        GetControl(rowControl, 'DisplayName'):SetText(data[2])
-        GetControl(rowControl, 'KA'):SetText(('%.1f'):format(data[3]))
-
-        GetControl(rowControl, 'Damage'):SetText(IMP_STATS_SHARED.FormatNumber(damage))
-        if damage > 500000 then
-            GetControl(rowControl, 'Damage'):SetColor(0.86, 0.3, 0)
-        else
-            GetControl(rowControl, 'Damage'):SetColor(1, 1, 1)
-        end
-
-        GetControl(rowControl, 'Healing'):SetText(IMP_STATS_SHARED.FormatNumber(healing))
-        if healing > 500000 then
-            GetControl(rowControl, 'Healing'):SetColor(0, 0.7, 0)
-        else
-            GetControl(rowControl, 'Healing'):SetColor(1, 1, 1)
-        end
-
-        rowControl:SetHandler('OnMouseDown', function(control, button)
-            if button == MOUSE_BUTTON_INDEX_LEFT then
-                ZO_ScrollList_MouseClick(scrollList, rowControl)
-            else
-                -- rowControl:SetHandler('OnMouseDown', ShowRMBMenu)
-                ShowRMBMenu(control, button)
-            end
-        end)
-
-        -- rowControl:SetHandler('OnMouseEnter', ShowTooltip)
-        -- rowControl:SetHandler('OnMouseExit', ZO_Tooltips_HideTextTooltip)
-    end
-
-	local control = self.listControl
-	local typeId = 1
-	local templateName = 'IMP_STATS_PlayersSummaryRow'
-	local height = 32
-	local setupFunction = LayoutRow
-	local hideCallback = nil
-	local dataTypeSelectSound = nil
-	local resetControlCallback = nil
-
-	ZO_ScrollList_AddDataType(control, typeId, templateName, height, setupFunction, hideCallback, dataTypeSelectSound, resetControlCallback)
-
-    -- local function LayoutMatchRow(previouslySelectedData, selectedData, selectingDuringRebuild)
-	-- 	if not selectedData then
-	-- 		IMP_STATS_VIEWER:OnDeselect()
-	-- 	elseif selectedData then
-	-- 		Log('Match selected')
-	-- 		local match = IMP_STATS_MATCHES_MANAGER.matches[selectedData.matchIndex]
-	-- 		IMP_STATS_VIEWER:LayoutMatch(match)
-	-- 	end
-	-- end
-
-	-- ZO_ScrollList_EnableSelection(control, 'ZO_ThinListHighlight', LayoutMatchRow)
-	-- ZO_ScrollList_SetDeselectOnReselect(control, true)
+    ShowMenu()
 end
 
--- Recursive comparison function
--- @param left, right   the two items to compare
--- @param keys          table of key indices (e.g. {sortKey, tiebreaker})
--- @param ascending     true for ascending, false for descending
--- @param idx           current index in 'keys' (start at 1)
--- @return              true if left should come before right
-local function compareRecursive(left, right, keys, ascending, idx)
-    if idx > #keys then
-        return false   -- all keys equal → keep original order (stable)
-    end
-
-    local keyIdx = keys[idx]
-    local a = left.data[keyIdx]
-    local b = right.data[keyIdx]
-
-    local aIsNil = (a == nil)
-    local bIsNil = (b == nil)
-
-    -- nil handling: non‑nil always comes first (independent of direction)
-    if aIsNil ~= bIsNil then
-        return not aIsNil   -- true if a is non‑nil and b is nil
-    end
-
-    -- both nil or both non‑nil
-    if not aIsNil then
-        if a == b then
-            -- tie → move to next key
-            return compareRecursive(left, right, keys, ascending, idx + 1)
-        else
-            -- compare according to direction
-            if ascending then
-                return a < b
-            else
-                return b < a
-            end
-        end
-    else
-        -- both nil → treat as equal, go to next key
-        return compareRecursive(left, right, keys, ascending, idx + 1)
-    end
+function addon:IsHidden()
+    return self.control:IsHidden()
 end
 
 function addon:Update()
-    -- if self:IsHidden() then
-    --     self.dirty = true
-    --     return
-    -- end
+    if self:IsHidden() then
+        self.dirty = true
+        return
+    end
+
+    if not self.dirty then
+        return
+    end
 
     local updateStart = GetGameTimeSeconds()
 
     BuildCache()  -- TODO
 
-    local control = self.listControl
-    local dataList = ZO_ScrollList_GetDataList(control)
+    local data = {}
+    for displayName, stats in pairs(ImpressiveStatsPlayersCache.players) do
+        if self:PassesFilter(displayName, stats) then
+            local numMatches = #stats[MATCHES]  -- can it actually be 0?
 
-    ZO_ScrollList_Clear(control)
+            local avgKA = (stats[KILLS] + stats[ASSISTS]) / numMatches
+            local avgDmg = stats[DAMAGE] / numMatches
+            local avgHeal = stats[HEALING] / numMatches
 
-    local function CreateAndAddDataEntry(displayName, stats)
-        local numMatches = #stats[MATCHES]  -- can it actually be 0?
+            local category = ImpressiveStatsPlayersSV.playerCategories[displayName]
 
-        -- local deathsSafe = math.max(stats[DEATHS], 1)
-        -- local kda = (stats[KILLS] + stats[ASSISTS]) / deathsSafe
-
-        local avgKA =  (stats[KILLS] + stats[ASSISTS]) / numMatches
-        local avgDmg = stats[DAMAGE] / numMatches
-        local avgHeal = stats[HEALING] / numMatches
-
-        local category = ImpressiveStatsPlayersSV.playerCategories[displayName]
-
-        local value = {numMatches, displayName, avgKA, avgDmg, avgHeal, category}
-        local entry = ZO_ScrollList_CreateDataEntry(1, value)
-
-        dataList[#dataList+1] = entry
-    end
-
-    for playerDisplayName, playerStats in pairs(ImpressiveStatsPlayersCache.players) do
-        if self:PassesFilter(playerDisplayName, playerStats) then
-            CreateAndAddDataEntry(playerDisplayName, playerStats)
+            data[#data+1] = {category, displayName, numMatches, avgKA, avgDmg, avgHeal,}
         end
     end
 
-    local sortingKeyToIndex = {
-        ['mark'] = 6,
-        ['displayName'] = 2,
-        ['numMatches'] = 1,
-        ['ka'] = 3,
-        ['damage'] = 4,
-        ['healing'] = 5,
-    }
-
-    local sortingKeyIndex = sortingKeyToIndex[self.sortingKey]
-
-    if not sortingKeyIndex then
-        sortingKeyIndex = 6
-    end
-    local tiebreakerIndex = 2
-
-    local ascending  = self.sortingDirection
-    local sortingKeys = { sortingKeyIndex, tiebreakerIndex }
-
-    table.sort(dataList, function(l, r) return compareRecursive(l, r, sortingKeys, ascending, 1) end)
+    self.table:Update(1, data)
 
     local updateDuration = GetGameTimeSeconds() - updateStart
-    self.performanceMeter:SetText(('Update ~%d ms'):format(updateDuration * 1000))
-
-    ZO_ScrollList_Commit(control)
+    -- TODO: global performance metering
+    -- self.performanceMeter:SetText(('Update ~%d ms'):format(updateDuration * 1000))
 end
 
 function addon:PassesFilter(playerDisplayName, playerStats)
@@ -371,6 +212,7 @@ function addon:HookBattlegroundPlayerRowMenu()
                 GetControl(anchorToControl, 'Mark'):SetHidden(false)
                 GetControl(anchorToControl, 'Mark'):SetColor(hex2rgb(categoryData.color))
 
+                self.dirty = true
                 self:Update()
             end)
         end
@@ -380,6 +222,7 @@ function addon:HookBattlegroundPlayerRowMenu()
 
             GetControl(anchorToControl, 'Mark'):SetHidden(true)
 
+            self.dirty = true
             self:Update()
         end)
 
@@ -419,7 +262,13 @@ end
 
 function addon:HookMatchesUpdate()
     -- TODO: implement event-callback system instead of this monstrosity?
-    ZO_PostHook(IMP_STATS_MATCHES_UI, 'Update', function() zo_callLater(function() self:Update() end, 2000) end)
+    ZO_PostHook(IMP_STATS_MATCHES_UI, 'Update', function()
+        zo_callLater(function()
+            self.dirty = true  -- assume the have to update, but it is not true TODO: update on actual data change?
+            self:Update()
+        end,
+        2000)
+    end)
 end
 
 function addon:InitializeSearch()
@@ -429,64 +278,13 @@ function addon:InitializeSearch()
         if newText == self.filters.displayName then return end
 
         self.filters.displayName = newText
+        self.dirty = true
         self:Update()
     end
 
     local searchBox = GetControl(self.control, 'HeaderPlayerSearchBox')
     searchBox:SetDefaultText('Enter player display name')
     searchBox:SetHandler('OnTextChanged',  OnSearchTextChanged)
-end
-
-function addon:SetupSortingHeaders()
-    local headers = GetControl(self.control, 'BodyHeaders')
-
-    local sortingHeaders = {
-        ['mark'] = 'Mark',
-        ['displayName'] = 'DisplayName',
-        ['numMatches'] = 'NumMatches',
-        ['ka'] = 'KA',
-        ['damage'] = 'Damage',
-        ['healing'] = 'Healing',
-    }
-
-    self.sortingKey = 'mark'
-    self.sortingDirection = true
-
-    local SORTING_TEXTURES = {
-        -- [true] = '/esoui/art/miscellaneous/list_sortheader_icon_sortdown.dds',
-        -- [false] = '/esoui/art/miscellaneous/list_sortheader_icon_sortup.dds',
-        [true] = '/esoui/art/miscellaneous/list_sortdown.dds',
-        [false] = '/esoui/art/miscellaneous/list_sortup.dds',
-    }
-
-    for sortingKey, headerContorolName in pairs(sortingHeaders) do
-        local headerControl = headers:GetNamedChild(headerContorolName)
-        headerControl:SetHandler('OnMouseDown', function(button)
-            if self.sortingKey == sortingKey then
-                self.sortingDirection = not self.sortingDirection
-            else
-                self.sortingKey = sortingKey
-                self.sortingDirection = true
-            end
-
-            local sortingOrderIcon = headers:GetNamedChild('SortingOrderIcon')
-            sortingOrderIcon:SetTexture(SORTING_TEXTURES[self.sortingDirection])
-            sortingOrderIcon:ClearAnchors()
-            if self.sortingDirection then
-                sortingOrderIcon:SetAnchor(TOP, headerControl, BOTTOM, 0, -8)
-            else
-                sortingOrderIcon:SetAnchor(BOTTOM, headerControl, TOP, 0, 8)
-            end
-
-            if self.sortingKey == 'mark' and self.sortingDirection then
-                sortingOrderIcon:SetHidden(true)
-            else
-                sortingOrderIcon:SetHidden(false)  -- TODO: can somehow get rid of it?
-            end
-
-            self:Update()
-        end)
-    end
 end
 
 function addon:Initialize()
@@ -502,11 +300,14 @@ function addon:Initialize()
         }
     }
 
-    self:CreateScrollListDataType()
+    local body = self.control:GetNamedChild('Body')
+    self.body = body
 
     self:InitializeSearch()
 
-    SLASH_COMMANDS['/impSTATSrebuildcache'] = function()
+    self:_initTable()
+
+    SLASH_COMMANDS['/impstatsrebuildcache'] = function()
         BuildCache(true)
     end
 
@@ -515,11 +316,95 @@ function addon:Initialize()
     self:HookBattlegroundPlayerRow()
     self:HookBattlegroundPlayerRowMenu()
 
-    self:SetupSortingHeaders()
+    self:HookMatchesUpdate()
 
-    -- self:HookMatchesUpdate()
+    if PP then
+        self.control:ClearAnchors()
+
+        self.control:SetAnchor(TOPRIGHT, IMP_STATS_MATCHES, TOPLEFT, -24, 200)
+        self.control:SetAnchor(BOTTOMRIGHT, IMP_STATS_MATCHES, BOTTOMLEFT, -24, -50)
+    end
 
     return self
+end
+
+function addon:_initTable()
+    local categories = ImpressiveStatsPlayersSV.categories
+
+	local Texture = LibScrollList.Texture
+	local Column = LibScrollList.Column
+	local Table = LibScrollList.Table
+
+	local function setCategoryIcon(ctrl, category)
+        if not category then
+            ctrl:SetColor(0.25, 0.25, 0.25)
+        else
+            ctrl:SetColor(hex2rgb(categories[category].color))
+        end
+	end
+
+	local iconStyle = {
+		SetDimensions = {20, 20},
+		SetDrawLayer = {DL_CONTROLS},
+	}
+
+    local CategoryIcon = Texture(iconStyle, setCategoryIcon)
+
+    local TC = IMP_STATS_TABLESTYLES.Text.Cell
+    local THU = IMP_STATS_TABLESTYLES.Text.HeaderUpper
+    local FC = IMP_STATS_TABLESTYLES.Formatted.Cell
+	local RC = IMP_STATS_TABLESTYLES.Rounded1F.Cell
+
+	local SORTABLE = true
+	local columns = {
+		Column('Group', 	   28,  0, CategoryIcon, '!', THU.Center, SORTABLE),
+		Column('DisplayName', 180,  8, TC.Left,   'Name', THU.Left,   SORTABLE),
+		Column('NumMatches',   32, 16, TC.Center,    '#', THU.Center, SORTABLE),
+		Column('KA',           60,  0, RC.Center,  'K+A', THU.Center, SORTABLE),
+		Column('DamageDone',   60,  0, FC.Center,  'Dmg', THU.Center, SORTABLE),
+		Column('HealingDone',  60,  0, FC.Center, 'Heal', THU.Center, SORTABLE),
+    }
+
+	local WITH_HEADERS = true
+    local myTable = Table(WITH_HEADERS)
+
+	local postCreateCallback = function(rowControl)
+        rowControl:SetHandler('OnMouseDown', function(control, button)
+            if button == MOUSE_BUTTON_INDEX_LEFT then
+                --  ZO_ScrollList_MouseClick(scrollList, rowControl)
+            else
+                ShowRMBMenu(control, button)
+            end
+        end)
+		-- local background = CreateControlFromVirtual('$(parent)Background', rowControl, 'IMP_TallListSelectedHighlight')
+	end
+
+	local postSetupCallback = function(rowControl, dataEntryData, scrollList)
+        if dataEntryData[DAMAGE] > 500000 then
+            GetControl(rowControl, 'DamageDone'):SetColor(0.86, 0.3, 0)
+        else
+            GetControl(rowControl, 'DamageDone'):SetColor(1, 1, 1)
+        end
+
+        if dataEntryData[HEALING] > 500000 then
+            GetControl(rowControl, 'HealingDone'):SetColor(0, 0.7, 0)
+        else
+            GetControl(rowControl, 'HealingDone'):SetColor(1, 1, 1)
+        end
+	end
+
+    myTable:AddDataType(1, columns, 32, postCreateCallback, postSetupCallback)
+
+	myTable.defaultSortingCriteria = {
+		{columnIndex = 1, order = ZO_SORT_ORDER_DOWN},
+		{columnIndex = 2, order = ZO_SORT_ORDER_UP},
+	}
+
+	local REPLACE = true
+    local scrollControl = myTable:Create('Table', self.body, REPLACE)
+    scrollControl:SetDimensions(460, 650)
+
+	self.table = myTable
 end
 
 -- TODO: SV handling, unify RMB, unify setting player category

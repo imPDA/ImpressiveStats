@@ -114,7 +114,7 @@
 			<Controls>
 				<!-- <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" edgeColor="FFFF00" centerColor="000000" /> -->
 
-				<Texture name="$(parent)Warning" textureFile="EsoUI/Art/Miscellaneous/eso_icon_warning.dds" color="FFFF00" level="1">
+				<Texture name="$(parent)Warning" textureFile="EsoUI/Art/Miscellaneous/eso_icon_warning.dds" color="FFFF00" level="1" hidden="true">
 					<Anchor point="BOTTOMLEFT" relativeTo="$(parent)" relativePoint="TOPLEFT" offsetX="150" />
 					<Dimensions x="48" y="48"/>
 				</Texture>
@@ -133,7 +133,7 @@
                 </Backdrop> -->
 
 				<Backdrop name="$(parent)OpponentSearch" tier="HIGH" inherits="ZO_SingleLineEditBackdrop_Keyboard">
-					<Anchor point="TOPRIGHT" offsetX="-16" offsetY="8" />
+					<Anchor point="TOPRIGHT" offsetX="-32" offsetY="8" />
                     <Dimensions x="270" />
                     <Controls>
                         <EditBox name="$(parent)Box" inherits="ZO_DefaultEditForBackdrop" defaultText="SI_REQUEST_NAME_INSTRUCTIONS" />
@@ -156,7 +156,7 @@
 				</Control>
 
 				<Control name="$(parent)StatsBlock">
-					<Anchor point="TOPLEFT" />
+					<Anchor point="TOPLEFT" offsetX="-8" />
 					<Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" relativePoint="TOPRIGHT" offsetY="150" />
 					<Controls>
 						<!-- <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" edgeColor="FF0000" centerColor="00FF00" /> -->
@@ -203,61 +203,8 @@
 				</Control>
 
 				<Control name="$(parent)Listing">
-					<Anchor point="TOPLEFT" relativeTo="$(parent)Divider" relativePoint="BOTTOMLEFT" />
-					<Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" relativePoint="BOTTOMRIGHT" />
-					<Controls>
-						<!-- <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" edgeColor="FF0000" centerColor="00FF00" /> -->
-						<Control name="$(parent)Header">
-							<Anchor point="TOPLEFT" relativeTo="$(parent)" relativePoint="TOPLEFT" />
-							<Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" relativePoint="TOPRIGHT" offsetY="40"/>
-							<Controls>
-								<!-- <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" edgeColor="FF0000" centerColor="00FF00" /> -->
-								<Label name="$(parent)Index" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column1" text="###">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)" />
-								</Label>
-								<Label name="$(parent)Duration" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column9" text="Time">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)Index" relativePoint="TOPRIGHT" offsetX="20" />
-								</Label>
-								<Label name="$(parent)PlayerClass" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column2" text="">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)Duration" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)PlayerRace" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column11" text="">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)PlayerClass" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)PlayerCharacterName" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column3" text="Player Name">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)PlayerRace" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)OpponentClass" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column4" text="">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)PlayerCharacterName" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)OpponentRace" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column12" text="">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)OpponentClass" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)OpponentCharacterName" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column5" text="Opponent Name">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)OpponentRace" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)DamageDone" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column6" text="Done">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)OpponentCharacterName" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)DamageTaken" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column8" text="Taken">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)DamageDone" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)HealingTaken" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column7" text="Heal">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)DamageTaken" relativePoint="TOPRIGHT" />
-								</Label>
-								<Label name="$(parent)DamageShielded" inherits="IMP_STATS_Listing_Header IMP_STATS_Duels_Listing_Column10" text="Shielded">
-									<Anchor point="TOPLEFT" relativeTo="$(parent)HealingTaken" relativePoint="TOPRIGHT" />
-								</Label>
-							</Controls>
-						</Control>
-						<Control name="$(parent)ScrollableList" inherits="ZO_ScrollList">
-							<Anchor point="TOPLEFT" relativeTo="$(parent)Header" relativePoint="BOTTOMLEFT" />
-							<Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" relativePoint="BOTTOMRIGHT" />
-							<Controls>
-								<!-- <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" edgeColor="0000FF" centerColor="00FF00" /> -->
-							</Controls>
-						</Control>
-					</Controls>
+					<Anchor point="TOPLEFT" relativeTo="$(parent)Divider" relativePoint="BOTTOMLEFT" offsetX="-8" />
+					<Anchor point="BOTTOMRIGHT" relativeTo="$(parent)" relativePoint="BOTTOMRIGHT" offsetX="-16" />
 				</Control>
 			</Controls>
 		</TopLevelControl>

@@ -77,7 +77,33 @@ function MatchesStats:Clear()
     self.totalHealingDone = 0
     self.totalDamageTaken = 0
 
+    self.observationsDamageDone = {}
+    self.observationsHealingDone = {}
+    self.observationsDamageTaken = {}
+    self.observationsKills = {}
+
     -- self.lastProceededIndex = 0
+end
+
+local function _sum(tbl)
+    local s = 0
+    for i = 1, #tbl do
+        s = s + tbl[i]
+    end
+    return s
+end
+
+local function _avg(tbl)
+    return _sum(tbl) / #tbl
+end
+
+local function _sd(tbl, E)
+    E = E or _avg(tbl)
+    local s = 0
+    for i = 1, #tbl do
+        s = s + (tbl[i] - E)^2
+    end
+    return s / #tbl
 end
 
 function MatchesStats:AddMatch(index, data)
@@ -104,70 +130,52 @@ function MatchesStats:AddMatch(index, data)
     -- self.totalLeft = self.totalLeft + 1
 
     -- self.lastProceededIndex = 0
+
+    if data.damageDoneRatio then
+        self.observationsDamageDone[#self.observationsDamageDone+1] = data.damageDoneRatio
+        self.observationsDamageTaken[#self.observationsDamageTaken+1] = data.damageTakenRatio
+        self.observationsHealingDone[#self.observationsHealingDone+1] = data.healingDoneRatio
+        self.observationsKills[#self.observationsKills+1] = data.killsRatio
+    end
+end
+
+local function _calcStats(observations)
+    if #observations < 16 then
+        return 0, 0
+    end
+    table.sort(observations)
+
+    local q = math.floor(#observations / 4)
+    local Q1 = observations[q]
+    local Q2 = observations[q*2]
+    local Q3 = observations[q*3]
+    local IQR = Q3-Q1
+    local IQR1_5 = IQR * 1.5
+    local left, right = Q2 - IQR1_5, Q2 + IQR1_5
+
+    local filtered = {}
+    for l = 1, #observations do
+        local dmg = observations[l]
+        if dmg > left and dmg < right then
+            filtered[#filtered+1] = dmg
+        end
+    end
+
+    local avg = _sum(filtered) / #filtered
+    local sigma = math.sqrt(_sd(filtered, avg))
+
+    return avg, sigma
+end
+
+function MatchesStats:NewStats()
+    self.EDD, self.sigmaDD = _calcStats(self.observationsDamageDone)
+    self.EDT, self.sigmaDT = _calcStats(self.observationsDamageTaken)
+    self.EHD, self.sigmaHD = _calcStats(self.observationsHealingDone)
+    self.EK, self.sigmaK = _calcStats(self.observationsKills)
 end
 --#endregion
 
 --#region IMP STATS MATCHES ADDON
-local SORTABLE_HEADERS = {
-    ['Index'] = 'index',
-    ['Score'] = 'medalScore',
-    ['Kills'] = 'kills',
-    ['Deaths'] = 'deaths',
-    ['Assists'] = 'assists',
-    ['DamageDone'] = 'damageDone',
-    ['HealingDone'] = 'healingDone',
-    ['DamageTaken'] = 'damageTaken',
-}
-
-local IS_LESS_THAN = -1
-local IS_EQUAL_TO = 0
-local IS_GREATER_THAN = 1
-
-local function SortingFunction(left, right, sortingKey, sortingOrder, tiebreaker)
-    local value1, value2 = left[sortingKey], right[sortingKey]
-
-    -- Log(value1, value2)
-
-    local compareResult
-    if value1 < value2 then
-        compareResult = IS_LESS_THAN
-    elseif value1 > value2 then
-        compareResult = IS_GREATER_THAN
-    else
-        compareResult = IS_EQUAL_TO
-    end
-
-    if compareResult == IS_EQUAL_TO then
-        if tiebreaker then
-            return SortingFunction(left, right, tiebreaker)
-        end
-    else
-        if sortingOrder == ZO_SORT_ORDER_UP then
-            return compareResult == IS_LESS_THAN
-        end
-
-        return compareResult == IS_GREATER_THAN
-    end
-end
-
-function addon:ApplySorting(preventCommit)
-    if not self.currentSortingKey then return end
-
-    Log('[B] Sorting requested by %s (%s)', self.currentSortingKey, tostring(self.currentSortOrder))
-
-    local scrollData = ZO_ScrollList_GetDataList(self.listControl)
-    assert(scrollData ~= nil, 'Scroll data is nil')
-
-    table.sort(scrollData, function(entry1, entry2)
-        local left, right = self.matchSummaries[entry1.data.matchIndex], self.matchSummaries[entry2.data.matchIndex]
-        return SortingFunction(left, right, self.currentSortingKey, self.currentSortOrder, 'index')
-    end)
-
-    if not preventCommit then
-        ZO_ScrollList_Commit(self.listControl)
-    end
-end
-
 function addon:UpdateStatsControl()
     local totalMatches = #self.matches  -- self.stats.totalMatches
 
@@ -175,7 +183,7 @@ function addon:UpdateStatsControl()
 
     local N = self.stats.totalMatches
     if IMP_STATS_MATCHES_MANAGER.sv.last150 then N = math.min(N, 150) end
-    self.statsControl:GetNamedChild('MatchesCount'):SetText(zo_strformat("Stats over last <<1>> <<m:2>>", N, 'match^n'))
+    self.statsControl:GetNamedChild('MatchesCount'):SetText(zo_strformat('Stats over last <<1>> <<m:2>>', N, 'match^n'))
 
     local winrate = PossibleNan(self.stats.totalWon / self.stats.totalMatches)
     self.statsControl:GetNamedChild('WinrateValue'):SetText(
@@ -208,53 +216,31 @@ end
 
 function addon:CreateControls()
     local matchesControl = IMP_STATS_MATCHES
+    self.tlc = matchesControl
 
     assert(matchesControl ~= nil, 'Matches control was not created')
 
-    local listControl = matchesControl:GetNamedChild('Listing'):GetNamedChild('ScrollableList')
+    -- local listControl = matchesControl:GetNamedChild('Listing'):GetNamedChild('ScrollableList')
     local statsControl = matchesControl:GetNamedChild('TopBlock'):GetNamedChild('Stats')
     local filtersControl = matchesControl:GetNamedChild('TopBlock'):GetNamedChild('Filters')
 
     self.matchesControl = matchesControl
-    self.listControl = listControl
+    -- self.listControl = listControl
     self.statsControl = statsControl
     self.filtersControl = filtersControl
     self.performanceMeter = matchesControl:GetNamedChild('PerformanceMeter')
 
-    matchesControl:SetHandler("OnShow", function()
+    matchesControl:SetHandler('OnShow', function()
         if self.dirty then self:Update() end
     end)
 
+    if PP then
+        local playersButton = self.tlc:GetNamedChild('OpenPlayers')
+        playersButton:ClearAnchors()
+        playersButton:SetAnchor(BOTTOMLEFT, self.tlc, TOPLEFT, -12, -8)
+    end
+
     Log('Controls created')
-end
-
-function addon:InitializeSortingHeaders()
-    local headersControl = self.matchesControl:GetNamedChild('Listing'):GetNamedChild('Headers')
-
-    local function InitializeSortableHeader(headerName)
-        local header = headersControl:GetNamedChild(headerName)
-        header:SetMouseEnabled(true)
-        header:SetHandler('OnMouseDown', function()
-            local sortingStart = GetGameTimeSeconds()
-
-            local sortingKey = SORTABLE_HEADERS[headerName]
-            if self.currentSortingKey == sortingKey then
-                self.currentSortOrder = not self.currentSortOrder
-                -- Log('Changing sort order')
-            else
-                self.currentSortOrder = ZO_SORT_ORDER_UP
-                self.currentSortingKey = sortingKey
-            end
-            self:ApplySorting()
-
-            local sortingDuration = GetGameTimeSeconds() - sortingStart
-            self.performanceMeter:SetText(('Update ~%d ms'):format(sortingDuration * 1000))
-        end)
-    end
-
-    for headerName, _ in pairs(SORTABLE_HEADERS) do
-        InitializeSortableHeader(headerName)
-    end
 end
 
 local GAME_TYPE_ABBREVIATION = {
@@ -267,139 +253,189 @@ local GAME_TYPE_ABBREVIATION = {
     -- [BATTLEGROUND_GAME_TYPE_NONE] = 'None',
 }
 
-function addon:CreateScrollListDataType()
-    -- TODO: make it global because it is used in at least one another place(?)
-    local COLOR_OF_RESULT = {
-        [BATTLEGROUND_RESULT_WIN] = {0, 1, 0, 1},
-        [BATTLEGROUND_RESULT_LOSS] = {1, 0, 0, 1},
-        [BATTLEGROUND_RESULT_TIE] = {55/255, 55/255, 55/255, 1},
+local tooltipTable = {}
+
+local function AddLine(line)
+    tooltipTable[#tooltipTable+1] = line or ''
+end
+
+local function ClearTooltip()
+    ZO_ClearNumericallyIndexedTable(tooltipTable)
+end
+
+local RACE_CLASS_ROW = '%s / %s'
+
+function addon:BuildTooltip(rowControl)
+    ClearTooltip()
+
+    local data = rowControl.dataEntry.data
+    local summary = self:GetMatchSummary(data[1])
+
+    if summary.entryTimestamp then
+        local formattedTime = os.date('%d.%m.%Y %H:%M', summary.entryTimestamp)
+        AddLine(formattedTime)
+        AddLine()
+    end
+    AddLine(zo_strformat('<<1>> (<<2>>)', summary.displayName, summary.characterName))
+    AddLine(RACE_CLASS_ROW:format(GetRaceName(0, summary.playerRace), GetClassName(0, summary.playerClass)))
+    AddLine(self.matches[data[1]].playedFromStart == true and 'Played from beginning' or self.matches[data[1]].playedFromStart == false and 'Played NOT from beginning' or '(?) Played from beginning')
+    AddLine(TEAM_TYPES[self.matches[data[1]].teamType] .. ', ' .. (self.matches[data[1]].grouped == true and 'Grouped' or self.matches[data[1]].grouped == false and 'Solo' or '(?) Solo/Grouped'))
+
+    AddLine()
+
+    -- tooltip = tooltip .. '\nScores:'
+    local localPlayerTeam = self.matches[data[1]].rounds[1].players[1].battlegroundTeam
+    local otherTeam = localPlayerTeam == 1 and 2 or 1
+    for roundIndex, roundData in ipairs(self.matches[data[1]].rounds) do
+        if roundData.result ~= BATTLEGROUND_ROUND_RESULT_INVALID then
+            local localPlayerTeamScore = roundData.scores[localPlayerTeam]
+            local otherTeamScore = roundData.scores[otherTeam]
+            local color = localPlayerTeamScore >= otherTeamScore and '00FF00' or 'FF0000'
+            AddLine(('|c%sRound %d:|r %d - %d'):format(color, roundIndex, localPlayerTeamScore, otherTeamScore))
+        end
+    end
+
+    -- if self.matchSummaries[data[1]].damageDoneRatio then
+    --     tooltip = tooltip .. '\n'
+    --     tooltip = tooltip .. ('Ratio: %.2f'):format(self.matchSummaries[data[1]].damageDoneRatio)
+    -- end
+
+    return table.concat(tooltipTable, '\n')
+end
+
+function addon:ShowTooltip(rowControl)
+    ZO_Tooltips_ShowTextTooltip(rowControl, LEFT, self:BuildTooltip(rowControl))
+end
+
+local ALPHA = 0.6
+local COLOR_OF_RESULT = {
+    [BATTLEGROUND_RESULT_WIN]  = {     0,      1,      0, ALPHA},
+    [BATTLEGROUND_RESULT_LOSS] = {     1,      0,      0, ALPHA},
+    [BATTLEGROUND_RESULT_TIE]  = {55/255, 55/255, 55/255, ALPHA},
+}
+
+--[[
+local function ShowRMBMenu(control, button)
+    if button ~= MOUSE_BUTTON_INDEX_RIGHT then return end
+
+    local data = control.dataEntry.data
+    local particularMatch = self.matches[data.matchIndex]
+    local text = particularMatch.playedFromStart and 'Mark as played NOT from beginning' or 'Mark as played from beginning'
+
+    ClearMenu()
+
+    AddCustomMenuItem(text, function()
+        particularMatch.playedFromStart = not particularMatch.playedFromStart
+        GetControl(control, 'Warning'):SetHidden(particularMatch.playedFromStart)
+    end)
+
+    ShowMenu()
+end
+--]]
+
+function addon:_createTable()
+	local Button = LibScrollList.Button
+	local Column = LibScrollList.Column
+	local Table = LibScrollList.Table
+
+    local buildButtonStyle = IMP_STATS_TABLESTYLES.buildButtonStyle
+
+    local BuildButton = Button(
+        buildButtonStyle,
+        function(ctrl, state, locked)
+            if state == BSTATE_DISABLED then
+                ctrl:SetHidden(true)
+            else
+                ctrl:SetHidden(false)
+                ctrl:SetState(BSTATE_NORMAL, locked)
+            end
+        end,
+        function(ctrl)
+            self:LayoutBuildFor(ctrl:GetParent():GetParent())
+        end
+    )
+
+	local FC = IMP_STATS_TABLESTYLES.Formatted.Cell
+	local TC = IMP_STATS_TABLESTYLES.Text.Cell
+	local TH = IMP_STATS_TABLESTYLES.Text.Header
+
+	local ClassIcon = IMP_STATS_TABLESTYLES.ClassIcon
+
+	local SORTABLE = true
+	local columns = {
+        Column('Index', 	   40,  0, TC.Right,     '###',  TH.Right,      SORTABLE),
+		Column('Mode',  	   56,  8, TC.Center,    'Mode', TH.Center, not SORTABLE),
+		Column('Map',  	      180,  0, TC.Left,     'Map',   TH.Left,   not SORTABLE),
+		Column('Class', 	   50,  0, ClassIcon,	'Class', TH.Center, not SORTABLE),
+		Column('Score',  	   70,  0, TC.Center,   'Score', TH.Center,     SORTABLE),
+        Column('Kills',        60,  0, TC.Center,	'Kills', TH.Center,     SORTABLE),
+		Column('Deaths',       60,  0, TC.Center,  'Deaths', TH.Center,     SORTABLE),
+		Column('Assists',      60,  0, TC.Center, 'Assists', TH.Center,     SORTABLE),
+        Column('DamageDone',   90,  0, FC.Center,  'Damage', TH.Center,     SORTABLE),
+		Column('HealignDone',  90,  0, FC.Center, 'Healing', TH.Center,     SORTABLE),
+        Column('DamageTaken',  90,  0, FC.Center,   'Taken', TH.Center,     SORTABLE),
+        Column('Build', 	   32,  0, BuildButton,	    nil, TH.Center, not SORTABLE),
     }
 
-    local function BuildTooltip(rowControl)
-        local tooltip = ''
+	local WITH_HEADERS = true
+    local myTable = Table(WITH_HEADERS)
 
-        local data = rowControl.dataEntry.data
-        local summary = self:GetMatchSummary(data.matchIndex)
-
-        if summary.entryTimestamp then
-            local formattedTime = os.date('%d.%m.%Y %H:%M', summary.entryTimestamp)
-            tooltip = tooltip .. formattedTime
-        else
-            tooltip = tooltip .. '-'
-        end
-        tooltip = tooltip .. '\n'
-        tooltip = tooltip .. zo_strformat('<<1>> (<<2>>)', summary.displayName, summary.characterName)
-        tooltip = tooltip .. '\n'
-        tooltip = tooltip .. GetRaceName(0, summary.playerRace) .. ' / ' .. GetClassName(0, summary.playerClass)
-        tooltip = tooltip .. '\n'
-        tooltip = tooltip .. (self.matches[data.matchIndex].playedFromStart == true and 'Played from beginning' or self.matches[data.matchIndex].playedFromStart == false and 'Played NOT from beginning' or '(?) Played from beginning')
-        tooltip = tooltip .. '\n'
-        tooltip = tooltip .. TEAM_TYPES[self.matches[data.matchIndex].teamType] .. ', ' .. (self.matches[data.matchIndex].grouped == true and 'Grouped' or self.matches[data.matchIndex].grouped == false and 'Solo' or '(?) Solo/Grouped')
-
-        tooltip = tooltip .. '\n'
-        -- tooltip = tooltip .. '\nScores:'
-        local localPlayerTeam = self.matches[data.matchIndex].rounds[1].players[1].battlegroundTeam
-        local otherTeam = localPlayerTeam == 1 and 2 or 1
-        for roundIndex, roundData in ipairs(self.matches[data.matchIndex].rounds) do
-            if roundData.result ~= BATTLEGROUND_ROUND_RESULT_INVALID then
-                local localPlayerTeamScore = roundData.scores[localPlayerTeam]
-                local otherTeamScore = roundData.scores[otherTeam]
-                local color = localPlayerTeamScore >= otherTeamScore and '00FF00' or 'FF0000'
-                tooltip = tooltip .. ('\n|c%sRound %d:|r %d - %d'):format(color, roundIndex, localPlayerTeamScore, otherTeamScore)
-            end
-        end
-
-        return tooltip
+    local function showTooltip(ctrl)
+        self:ShowTooltip(ctrl)
     end
 
-    local function ShowTooltip(rowControl)
-        ZO_Tooltips_ShowTextTooltip(rowControl, LEFT, BuildTooltip(rowControl))
+    local function onMouseDown(rowControl, button)
+        local scrollList = rowControl:GetParent():GetParent()
+        ZO_ScrollList_MouseClick(scrollList, rowControl)
     end
-
-    local function ShowRMBMenu(control, button)
-        if button ~= MOUSE_BUTTON_INDEX_RIGHT then return end
-
-        local data = control.dataEntry.data
-        local particularMatch = self.matches[data.matchIndex]
-        local text = particularMatch.playedFromStart and 'Mark as played NOT from beginning' or 'Mark as played from beginning'
-
-        ClearMenu()
-
-        AddCustomMenuItem(text, function()
-            particularMatch.playedFromStart = not particularMatch.playedFromStart
-            GetControl(control, 'Warning'):SetHidden(particularMatch.playedFromStart)
-        end)
-
-        ShowMenu()
-    end
-
-    local function LayoutRow(rowControl, data, scrollList)
-        local summary = self:GetMatchSummary(data.matchIndex)
-
-        GetControl(rowControl, 'Index'):SetText(data.matchIndex)
-        GetControl(rowControl, 'Warning'):SetHidden(self.matches[data.matchIndex].playedFromStart)
-
-        if COLOR_OF_RESULT[summary.result] then
-            GetControl(rowControl, 'BG'):SetHidden(false)
-            GetControl(rowControl, 'BG'):SetColor(unpack(COLOR_OF_RESULT[summary.result]))
-        end
-
-        GetControl(rowControl, 'Mode'):SetText(GAME_TYPE_ABBREVIATION[summary.mode])
-        GetControl(rowControl, 'Map'):SetText(summary.zone)
-        -- GetControl(rowControl, 'Team'):SetText(data.team)
-        local classIcon = summary.playerClass and ZO_GetClassIcon(summary.playerClass) or 'EsoUI/Art/Icons/icon_missing.dds'
-        GetControl(rowControl, 'Class'):GetNamedChild('ClassIcon'):SetTexture(classIcon)
-        GetControl(rowControl, 'Score'):SetText(summary.medalScore)
-
-        GetControl(rowControl, 'Kills'):SetText(summary.kills)
-        GetControl(rowControl, 'Deaths'):SetText(summary.deaths)
-        GetControl(rowControl, 'Assists'):SetText(summary.assists)
-
-        GetControl(rowControl, 'DamageDone'):SetText(IMP_STATS_SHARED.FormatNumber(summary.damageDone))
-        GetControl(rowControl, 'HealingDone'):SetText(IMP_STATS_SHARED.FormatNumber(summary.healingDone))
-        GetControl(rowControl, 'DamageTaken'):SetText(IMP_STATS_SHARED.FormatNumber(summary.damageTaken))
-
-        rowControl:SetHandler('OnMouseDown', function(control, button)
-            -- Log('click: ' .. button)
-            ZO_ScrollList_MouseClick(scrollList, rowControl)
-            -- rowControl:SetHandler('OnMouseDown', ShowRMBMenu)
-        end)
-
-        rowControl:SetHandler('OnMouseEnter', ShowTooltip)
-        rowControl:SetHandler('OnMouseExit', ZO_Tooltips_HideTextTooltip)
-
-        GetControl(rowControl, 'Build'):SetHidden(self.matches[data.matchIndex].superstar == nil )
-    end
-
-	local control = self.listControl
-	local typeId = 1
-	local templateName = 'IMP_STATS_MatchSummaryRow'
-	local height = 32
-	local setupFunction = LayoutRow
-	local hideCallback = nil
-	local dataTypeSelectSound = nil
-	local resetControlCallback = nil
-
-	ZO_ScrollList_AddDataType(control, typeId, templateName, height, setupFunction, hideCallback, dataTypeSelectSound, resetControlCallback)
 
     local function LayoutMatchRow(previouslySelectedData, selectedData, selectingDuringRebuild)
 		if not selectedData then
 			IMP_STATS_VIEWER:OnDeselect()
 		elseif selectedData then
-			Log('Match selected')
-			local match = IMP_STATS_MATCHES_MANAGER.matches[selectedData.matchIndex]
+			local match = IMP_STATS_MATCHES_MANAGER.matches[selectedData[1]]
             if #match.rounds[1].players < 2 then
                 local FULL = true
-                match = IMP_STATS_MATCHES_MANAGER.UnpackMatch(IMP_STATS_MATCHES_MANAGER.savedMatches[selectedData.matchIndex], FULL)
+                match = IMP_STATS_MATCHES_MANAGER.UnpackMatch(IMP_STATS_MATCHES_MANAGER.savedMatches[selectedData[1]], FULL)
             end
 			IMP_STATS_VIEWER:LayoutMatch(match)
 		end
 	end
 
-	ZO_ScrollList_EnableSelection(control, 'ZO_ThinListHighlight', LayoutMatchRow)
-	ZO_ScrollList_SetDeselectOnReselect(control, true)
+	local postCreateCallback = function(rowControl)
+		local background = CreateControlFromVirtual('$(parent)Background', rowControl, 'IMP_TallListSelectedHighlight')
+        background:SetAlpha(0.6)
 
-    Log('Scroll list data type created')
+        rowControl:SetHandler('OnMouseEnter', showTooltip)
+        rowControl:SetHandler('OnMouseExit', ZO_Tooltips_HideTextTooltip)
+
+        rowControl:SetHandler('OnMouseDown', onMouseDown)
+
+        local scrollList = rowControl:GetParent():GetParent()
+
+        ZO_ScrollList_EnableSelection(scrollList, 'ZO_ThinListHighlight', LayoutMatchRow)
+	    ZO_ScrollList_SetDeselectOnReselect(scrollList, true)
+	end
+	local postSetupCallback = function(rowControl, dataEntryData, scrollList)
+        local result = dataEntryData[13]
+        if result then
+            GetControl(rowControl, 'Background'):SetHidden(false)
+            GetControl(rowControl, 'Background'):SetColor(unpack(COLOR_OF_RESULT[result]))
+        else
+            GetControl(rowControl, 'Background'):SetHidden(true)
+        end
+	end
+    myTable:AddDataType(1, columns, 32, postCreateCallback, postSetupCallback)
+
+	myTable.defaultSortingCriteria = {
+		{columnIndex = 1, order = ZO_SORT_ORDER_DOWN},
+	}
+
+	local REPLACE = true
+    local scrollControl = myTable:Create('Listing', self.tlc, REPLACE)
+    -- scrollControl:SetDimensions(1048+36-75-8, 0)
+
+	self.table = myTable
 end
 
 local function CreateMatchSummary(matchIndex, matchData)
@@ -418,6 +454,7 @@ local function CreateMatchSummary(matchIndex, matchData)
         healingDone = 0,
         damageTaken = 0,
         entryTimestamp = matchData.entryTimestamp,
+        rounds = #matchData.rounds,
     }
 
     for roundIndex, roundData in ipairs(matchData.rounds) do
@@ -436,6 +473,24 @@ local function CreateMatchSummary(matchIndex, matchData)
             matchSummary.displayName = roundPlayerData.displayName
             matchSummary.characterName = roundPlayerData.characterName
         end
+    end
+
+    if matchSummary.rounds == 1 then
+        local sDD, sHD, sDT, sK = 0, 0, 0, 0
+
+        local players = matchData.rounds[1].players
+        for p = 2, #players do
+            sDD = sDD + players[p].damageDone
+            sHD = sHD + players[p].healingDone
+            sDT = sDT + players[p].damageTaken
+            sK = sK + players[p].kills
+        end
+
+        local nOthers = #players - 1
+        matchSummary.damageDoneRatio  = players[1].damageDone  * nOthers / sDD
+        matchSummary.damageTakenRatio = players[1].damageTaken * nOthers / sDT
+        matchSummary.healingDoneRatio = players[1].healingDone * nOthers / sHD
+        matchSummary.killsRatio       = players[1].kills       * nOthers / sK
     end
 
     return matchSummary
@@ -510,40 +565,47 @@ function addon:Update()
 
     IMP_STATS_MATCHES_MANAGER
     :GetMatches(task, self.filters, self.dataRows)
-    -- :Then(function() UpdateSummaries(task) end)
     :Then(function()
-        self:UpdateScrollListControl(task)
-        self:CalculateStats(task):Then(function() self:UpdateStatsControl() end)
+        self:UpdateScrollList()
+        self:CalculateStats(task)
+        :Then(function() self.stats:NewStats() end)
+        :Then(function() self:UpdateStatsControl() end)
     end)
-    :Then(function() self:ApplySorting(true) end)
-    :Then(function() ZO_ScrollList_Commit(self.listControl) end)
     :Then(function() self.dirty = false end)
     :Then(function()
         local updateDuration = GetGameTimeSeconds() - updateStart
-        self.performanceMeter:SetText(('Update ~%d ms'):format(updateDuration * 1000))
+        -- self.performanceMeter:SetText(('Update ~%d ms'):format(updateDuration * 1000))
     end)
 end
 
-function addon:UpdateScrollListControl(task)
-    local control = self.listControl
-    local data = self.dataRows
+function addon:UpdateScrollList()
+    local matches = self.dataRows
 
-    local dataList = ZO_ScrollList_GetDataList(control)
+    local data = {}
+    for i = 1, #matches do
+        local matchId = matches[i]
+        local summary = self:GetMatchSummary(matchId)
 
-    ZO_ScrollList_Clear(control)
+        -- GetControl(rowControl, 'Warning'):SetHidden(self.matches[data.matchIndex].playedFromStart)  -- TODO
 
-    local function CreateAndAddDataEntry(index)
-        local matchIndex = data[index]
-
-        local value = {index = index, matchIndex = matchIndex}
-        local entry = ZO_ScrollList_CreateDataEntry(1, value)
-
-        table.insert(dataList, entry)
+        data[#data+1] = {
+            matchId,
+            GAME_TYPE_ABBREVIATION[summary.mode],
+            summary.zone,
+            summary.playerClass,
+            summary.medalScore,
+            summary.kills,
+            summary.deaths,
+            summary.assists,
+            summary.damageDone,
+            summary.healingDone,
+            summary.damageTaken,
+            self.matches[i].superstar ~= nil and BSTATE_NORMAL or BSTATE_DISABLED,
+            summary.result
+        }
     end
-    -- table.sort(dataList, function(a, b) return a.data.index > b.data.index end)
 
-    return task:For(#data, 1, -1):Do(CreateAndAddDataEntry)
-    -- ZO_ScrollList_Commit(control)
+    self.table:Update(1, data)
 end
 
 InitializeFilter = IMP_STATS_SHARED.InitializeFilter
@@ -599,7 +661,7 @@ function addon:InitializeMatchModeFilter()
         table.insert(entriesData, {
             text = string.format(
                 '%s (%s)',
-                GetString("SI_BATTLEGROUNDGAMETYPE", mode),
+                GetString('SI_BATTLEGROUNDGAMETYPE', mode),
                modeName
             ),
             type = mode,
@@ -611,7 +673,7 @@ function addon:InitializeMatchModeFilter()
         table.insert(entriesData, {
             text = string.format(
                 '%s (%s)',
-                GetString("SI_BATTLEGROUNDGAMETYPE", i),
+                GetString('SI_BATTLEGROUNDGAMETYPE', i),
                 GAME_TYPE_ABBREVIATION[i]
             ),
             type = i,
@@ -654,8 +716,7 @@ function addon:Initialize(naming, selections, filterByApi, debugging)
     self.stats = MatchesStats:New()
 
     self:CreateControls()
-    self:InitializeSortingHeaders()
-    self:CreateScrollListDataType()
+    self:_createTable()
 
     local function GoodDataFilter(matchData)
         -- if not matchData.rounds then
@@ -758,9 +819,9 @@ end
 --#endregion
 
 function addon:LayoutBuildFor(row)
-    if not (row and row.dataEntry and row.dataEntry.data.matchIndex) then return end
+    if not (row and row.dataEntry and row.dataEntry.data[1]) then return end
 
-    local matchIndex = row.dataEntry.data.matchIndex
+    local matchIndex = row.dataEntry.data[1]
 
     LibDataPacker_Build_LayoutShortBuild(self.matches[matchIndex].superstar)
 end

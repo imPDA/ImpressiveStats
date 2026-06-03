@@ -2,198 +2,206 @@ local TLC = IMP_STATS_VIEWER_TLC
 local ImperessiveStatsViewer = {}
 
 function ImperessiveStatsViewer:Init()
-	self.teamContainers = {}
-	local BODY = TLC:GetNamedChild('Body')
+	local body = TLC:GetNamedChild('Body')
+	self.body = body
 
-	-- local previousControl = BODY:GetNamedChild('Rounds')
-	local previousControl = nil
-	for i = BATTLEGROUND_TEAM_ITERATION_BEGIN, BATTLEGROUND_TEAM_ITERATION_END do
-		local previousPlayerRow
-		local teamContainer = CreateControlFromVirtual('$(parent)Team', BODY, 'IMP_STATS_VIEWER_TeamTemplate', i)
+	self.scores = body:GetNamedChild('Scores')
 
-		if previousControl then
-			teamContainer:SetAnchor(TOPLEFT, previousControl, BOTTOMLEFT, 0, 16)
-		else
-			teamContainer:SetAnchor(TOPRIGHT, BODY:GetNamedChild('Headers'), BOTTOMRIGHT)
-		end
-		previousControl = teamContainer
+	self:_initRounds()
 
-		self.teamContainers[i] = {
-			control = teamContainer,
-			players = {},
-		}
-		for j = 1, 8 do
-			local playerRow = CreateControlFromVirtual('$(parent)Player', teamContainer:GetNamedChild('Right'), 'IMP_STATS_VIEWER_PlayerTemplate', j)
-			if previousPlayerRow then
-				playerRow:SetAnchor(TOPLEFT, previousPlayerRow, BOTTOMLEFT)
-			end
-			previousPlayerRow = playerRow
-			self.teamContainers[i].players[j] = {
-				control = playerRow,
-			}
-		end
-	end
+	self:_initTable()
 
-	local function SwitchRound(roundControl, button)
-		if button ~= MOUSE_BUTTON_INDEX_LEFT then return end
-		self:LayoutRound(roundControl.number)
-	end
-
-	local ROUNDS = BODY:GetNamedChild('Rounds')
-	for r = 1, 3 do
-		local roundControl = ROUNDS:GetNamedChild('Round' .. r)
-		roundControl.selected = false
-		roundControl.number = r
-		roundControl:SetHandler("OnMouseDown", SwitchRound)
-	end
-
-	IMP_STATS_MATCHES:SetHandler("OnEffectivelyShown", function()
+	IMP_STATS_MATCHES:SetHandler('OnEffectivelyShown', function()
 		if self.match then
 			TLC:SetHidden(false)
 		end
 	end)
 
-	IMP_STATS_MATCHES:SetHandler("OnEffectivelyHidden", function()
+	IMP_STATS_MATCHES:SetHandler('OnEffectivelyHidden', function()
 		TLC:SetHidden(true)
 	end)
 
 	return self
 end
 
-function ImperessiveStatsViewer:Clear()
-	for teamIndex, team in pairs(self.teamContainers) do
-		for playerIndex, player in pairs(team.players) do
-			player.control:SetHidden(true)
-		end
-		team.control:SetHidden(true)
+function ImperessiveStatsViewer:_initRounds()
+	local function SwitchRound(roundControl, button)
+		if button ~= MOUSE_BUTTON_INDEX_LEFT then return end
+		self:LayoutRound(roundControl.number)
 	end
+
+	local rounds = self.body:GetNamedChild('Rounds')
+	local previous = rounds:GetNamedChild('Label')
+	for r = 1, 3 do
+		local roundControl = CreateControlFromVirtual('$(parent)Round', rounds, 'IMP_STATS_VIEWER_RoundNumberTemplate', r)
+		roundControl:SetAnchor(LEFT, previous, RIGHT)
+		previous = roundControl
+
+		roundControl:SetText(r)
+		roundControl:SetHandler('OnMouseDown', SwitchRound)
+
+		roundControl.selected = false
+		roundControl.number = r
+	end
+
+	self.rounds = rounds
+end
+
+function ImperessiveStatsViewer:_initTable()
+	local Texture = LibScrollList.Texture
+	local Column = LibScrollList.Column
+	local Table = LibScrollList.Table
+
+	local function setTeamIcon(ctrl, teamId)
+		ctrl:SetTexture(ZO_GetBattlegroundTeamIcon(teamId))
+	end
+
+	local iconStyle = {
+		SetDimensions = {28, 28},
+		SetDrawLayer = {DL_CONTROLS},
+	}
+
+	local TeamIcon = Texture(iconStyle, setTeamIcon)
+
+	local TC = IMP_STATS_TABLESTYLES.Text.Cell
+	local FC = IMP_STATS_TABLESTYLES.Formatted.Cell
+
+	local ClassIcon = IMP_STATS_TABLESTYLES.ClassIcon
+	local THU = IMP_STATS_TABLESTYLES.Text.HeaderUpper
+
+
+	local SORTABLE = true
+	local columns = {
+		Column('Index', 	   20,  0, TC.Right,       '##', THU.Right,  SORTABLE),
+		Column('Team',  	   50, 16, TeamIcon,	 'Team', THU.Center, SORTABLE),
+		Column('Class', 	   28, 22, ClassIcon,		nil, THU.Center, SORTABLE),
+		Column('DisplayName', 400,  8, TC.Left, 	 'Name', THU.Left,   SORTABLE),
+		Column('MedalScore',   80,  0, TC.Center,	'Score', THU.Center, SORTABLE),
+		Column('Kills',        50, 15, TC.Center,	    'K', THU.Center, SORTABLE),
+		Column('Deaths',       50,  0, TC.Center,	    'D', THU.Center, SORTABLE),
+		Column('Assists',      50,  0, TC.Center,	    'A', THU.Center, SORTABLE),
+		Column('DamageDone',  100,  0, FC.Center,  'Damage', THU.Center, SORTABLE),
+		Column('HealignDone', 100,  0, FC.Center, 'Healing', THU.Center, SORTABLE),
+    }
+
+	local WITH_HEADERS = true
+    local myTable = Table(WITH_HEADERS)
+
+	local postCreateCallback = function(rowControl)
+		local background = CreateControlFromVirtual('$(parent)Background', rowControl, 'IMP_TallListSelectedHighlight')
+	end
+	local postSetupCallback = function(rowControl, dataEntryData, scrollList)
+		local team = dataEntryData[2]
+		local color = GetBattlegroundTeamColor(team)
+		rowControl:GetNamedChild('Background'):SetColor(color:UnpackRGBA())
+		rowControl:GetNamedChild('Background'):SetHidden(false)
+
+		-- TODO: find a way to insert new columns without changing indices in other different places
+		local isLocal = dataEntryData[11]
+		if isLocal then
+			rowControl:GetNamedChild('DisplayName'):SetColor(239 / 255, 191 / 255, 4 / 255)  -- #EFBF04 Gold
+		else
+			rowControl:GetNamedChild('DisplayName'):SetColor(1, 1, 1)  -- #EFBF04 Gold
+		end
+
+		rowControl:GetNamedChild('Index'):SetText(rowControl.index)
+	end
+    myTable:AddDataType(1, columns, 32, postCreateCallback, postSetupCallback)
+
+	myTable.defaultSortingCriteria = {
+		{columnIndex = 2, order = ZO_SORT_ORDER_UP},
+		{columnIndex = 5, order = ZO_SORT_ORDER_DOWN},
+	}
+
+	local REPLACE = true
+    local scrollControl = myTable:Create('Table', self.body, REPLACE)
+    scrollControl:SetDimensions(1048+36-75-8, 0)
+
+	self.table = myTable
+end
+
+function ImperessiveStatsViewer:Clear()
 	self.match = nil
 	self.roundNumber = nil
 end
 
 IMP_STATS_VIEWER = ImperessiveStatsViewer:Init()
 
-
-local function LayoutPlayer(playerRow, playerData)
-	local playerClass = playerData.classId
-	local classIcon = playerClass and ZO_GetClassIcon(playerClass) or 'EsoUI/Art/Icons/icon_missing.dds'
-
-	playerRow:GetNamedChild('ClassIcon'):SetTexture(classIcon)
-	playerRow:GetNamedChild('PlayerName'):SetText(zo_strformat('<<1>> (<<2>>)', playerData.displayName, playerData.characterName))
-	playerRow:GetNamedChild('MedalScore'):SetText(playerData.medalScore)
-	playerRow:GetNamedChild('Kills'):SetText(playerData.kills)
-	playerRow:GetNamedChild('Deaths'):SetText(playerData.deaths)
-	playerRow:GetNamedChild('Assists'):SetText(playerData.assists)
-	playerRow:GetNamedChild('DamageDone'):SetText(IMP_STATS_SHARED.FormatNumber(playerData.damageDone))
-	playerRow:GetNamedChild('HealingDone'):SetText(IMP_STATS_SHARED.FormatNumber(playerData.healingDone))
-
-	playerRow:SetHidden(false)
-end
-
-local function comparisonFunction(l, r)
-	--[[
-	if l.medalScore == r.medalScore then
-		return l.damageDone > r.damageDone
-	end
-
-	return l.medalScore > r.medalScore
-	--]]
-
-	return l.damageDone > r.damageDone
-end
-
-local GREEN = {0, 120 / 255, 0, 100 / 255}
-local RED = {150 / 255, 0, 0, 100 / 255}
-
 function ImperessiveStatsViewer:LayoutRound(roundNumber)
 	local match = self.match
 
 	if not (match and match.rounds and match.rounds[roundNumber] and match.rounds[roundNumber].result ~= BATTLEGROUND_ROUND_RESULT_INVALID) then return end
 	if roundNumber == self.roundNumber then return end
-
-	local BODY = TLC:GetNamedChild('Body')
-	local ROUNDS = BODY:GetNamedChild('Rounds')
-
-	if self.roundNumber then
-		local previousSelectedRoundControl = ROUNDS:GetNamedChild('Round' .. self.roundNumber)
-		previousSelectedRoundControl:SetColor(GetInterfaceColor(INTERFACE_COLOR_TYPE_TEXT_COLORS, INTERFACE_TEXT_COLOR_NORMAL))
-		previousSelectedRoundControl.selected = false
-	end
-
-	local selectedRoundControl = ROUNDS:GetNamedChild('Round' .. roundNumber)
-	selectedRoundControl:SetColor(GetInterfaceColor(INTERFACE_COLOR_TYPE_TEXT_COLORS, INTERFACE_TEXT_COLOR_SELECTED))
-	selectedRoundControl.selected = true
-
 	self.roundNumber = roundNumber
 
 	local round = match.rounds[roundNumber]
 
-	local teams = {
-		[1] = {},
-		[2] = {},
-		[3] = {},
-	}
-	local players = round.players
-	for playerIndex = 1, #players do
-		local teamIndex = players[playerIndex].battlegroundTeam
+	local maxTeamId = 2  -- TODO: find better way to distinct 2-team and 3-team, e.x. with team type
 
-		table.insert(teams[teamIndex], players[playerIndex])
-	end
+	local data = {}
+	for p, player in ipairs(round.players) do
+		table.insert(data, {
+			0,  -- can't put nil because it will try to sort by 1 column by default and fail
+			player.battlegroundTeam,
+			player.classId,
+			zo_strformat('<<1>> (<<2>>)', player.displayName, player.characterName),
+			player.medalScore,
+			player.kills,
+			player.deaths,
+			player.assists,
+			player.damageDone,
+			player.healingDone,
+			p == 1,
+		})
 
-	local maxScore = -1
-	local teamWithMaxScore = 0
-	for teamIndex, teamScore in pairs(round.scores) do
-		if teamScore > maxScore then
-			maxScore = teamScore
-			teamWithMaxScore = teamIndex
+		if player.battlegroundTeam > maxTeamId then
+			maxTeamId = player.battlegroundTeam
 		end
 	end
 
-	local numTeams = 0
-	for teamIndex = 1, 3 do
-		local teamData = teams[teamIndex]
-		if #teamData > 1 then
-			local teamContainer = self.teamContainers[teamIndex].control
+	local scores = round.scores
+	local winner = 0
+	local maxScore = 0
+	for s = 1, #scores do
+		if scores[s] > maxScore then
+			winner = s
+			maxScore = scores[s]
+		end
+	end
 
-			teamContainer:SetHidden(false)
-			local color = teamWithMaxScore == teamIndex and GREEN or RED
-			teamContainer:GetNamedChild('BG'):SetColor(unpack(color))
-
-			local left = teamContainer:GetNamedChild('Left')
-			left:GetNamedChild('Score'):SetText(round.scores[teamIndex])
-			left:GetNamedChild('TeamIcon'):SetTexture(ZO_GetBattlegroundTeamIcon(teamIndex))
-			-- left:GetNamedChild('TeamIcon'):SetColor()
-
-			table.sort(teamData, comparisonFunction)
-
-			for playerIndex = 1, 8 do
-				local playerData = teamData[playerIndex]
-				local control = self.teamContainers[teamIndex].players[playerIndex].control
-				if playerData then
-					LayoutPlayer(control, playerData)
-				else
-					control:SetHidden(true)
-				end
+	-- local localPlayerTeam = round.players[1].battlegroundTeam
+	-- TODO: label WIN if winner == localPlayerTeam
+	for t = 1, 3 do
+		local team = self.scores:GetNamedChild('Team'..t)
+		if t <= maxTeamId then
+			local score = team:GetNamedChild('Score')
+			score:SetText(scores[t])
+			if t == winner then
+				score:SetColor(239 / 255, 191 / 255, 4 / 255)  -- #EFBF04 Gold
+			else
+				score:SetColor(0.7, 0.7, 0.7)
 			end
-			numTeams = teamIndex
+
+			team:SetHidden(false)
+		else
+			team:SetHidden(true)
 		end
 	end
 
-	ROUNDS:SetAnchor(TOPLEFT, self.teamContainers[numTeams].control, BOTTOMLEFT, 0, 12)
+	self.table:ResizeToFitNRows(1, #data)
+	self.table:Update(1, data)
+
+	self:_updateRoundsSelector()
 end
 
-function ImperessiveStatsViewer:LayoutMatch(match)
-	self:Clear()
+function ImperessiveStatsViewer:_updateRoundsSelector()
+	local match = self.match
+	local rounds = self.rounds
 
-	self.match = match
-
-	self:LayoutRound(1)
-
-	local ROUNDS = TLC:GetNamedChild('Body'):GetNamedChild('Rounds')
-	if #self.match.rounds > 1 then
+	if #match.rounds > 1 then
 		for r = 1, 3 do
 			local roundData = match.rounds[r]
-			local roundControl = ROUNDS:GetNamedChild('Round' .. r)
+			local roundControl = rounds:GetNamedChild('Round' .. r)
 			if roundData and roundData.result ~= BATTLEGROUND_ROUND_RESULT_INVALID then
 				roundControl:SetHidden(false)
 				if r == IMP_STATS_VIEWER.roundNumber then
@@ -207,10 +215,15 @@ function ImperessiveStatsViewer:LayoutMatch(match)
 				roundControl:SetHidden(true)
 			end
 		end
-		ROUNDS:SetHidden(false)
+		rounds:SetHidden(false)
 	else
-		ROUNDS:SetHidden(true)
+		rounds:SetHidden(true)
 	end
+end
+
+function ImperessiveStatsViewer:LayoutMatch(match)
+	self:Clear()
+	self.match = match
 
 	if match.entryTimestamp then
 		local formattedTime = os.date('%d.%m.%Y %H:%M', match.entryTimestamp)
@@ -220,6 +233,8 @@ function ImperessiveStatsViewer:LayoutMatch(match)
 			('%s, %s, %s'):format(formattedTime, GetZoneNameById(match.zoneId), formattedPlayer)
 		)
 	end
+
+	self:LayoutRound(1)
 
 	TLC:SetHidden(false)
 end

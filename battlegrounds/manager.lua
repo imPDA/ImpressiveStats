@@ -417,7 +417,8 @@ function MatchManager:GetDataRows(task)
     local function loadMatch(index)
         local matchData = self.savedMatches[index]
         if type(matchData) == 'string' then
-            self.matches[index] = self.UnpackMatch(matchData)
+            local FULL = true
+            self.matches[index] = self.UnpackMatch(matchData, FULL)
         else
             self.unpackedSavedMatches = true
             self.matches[index] = {}

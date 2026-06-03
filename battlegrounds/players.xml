@@ -1,55 +1,5 @@
 <GuiXml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sir.insidi.at/or/schema/esoui.xsd">
     <Controls>
-        <Label name="IMP_STATS_PlayersSummary_Column2"                                  virtual="true"><Dimensions x="180"  y="32" /></Label>
-        <Label name="IMP_STATS_PlayersSummary_Column1"  horizontalAlignment="CENTER"    virtual="true"><Dimensions x="32"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column3"  horizontalAlignment="CENTER"    virtual="true"><Dimensions x="60"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column4"  horizontalAlignment="CENTER"    virtual="true"><Dimensions x="60"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column5"  horizontalAlignment="CENTER"    virtual="true"><Dimensions x="60"   y="32" /></Label>
-		<!-- 
-        <Label name="IMP_STATS_PlayersSummary_Column6"  horizontalAlignment="CENTER"    virtual="true"><Dimensions x="60"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column7"  horizontalAlignment="CENTER"    virtual="true"><Dimensions x="60"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column8"  horizontalAlignment="RIGHT"     virtual="true"><Dimensions x="90"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column9"  horizontalAlignment="RIGHT"     virtual="true"><Dimensions x="90"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column10" horizontalAlignment="RIGHT"     virtual="true"><Dimensions x="90"   y="32" /></Label>
-		<Label name="IMP_STATS_PlayersSummary_Column11" horizontalAlignment="CENTER"    virtual="true"><Dimensions x="70"   y="32" /></Label>
-        -->
-
-        <!-- <Label name="IMP_STATS_Listing_Cell" font="ZoFontWinH4" wrapMode="ELLIPSIS" verticalAlignment="CENTER" text="-" virtual="true" />
-		<Label name="IMP_STATS_Listing_Header" font="ZoFontGameLargeBold" color="CFDCBD" wrapMode="ELLIPSIS" verticalAlignment="CENTER" text="TEXT" virtual="true"> -->
-
-        <Label name="IMP_STATS_PlayersSummaryRow" inherits="ZO_SelectableLabel" virtual="true">
-            <Dimensions y="32" />
-            <Controls>
-                <Texture name="$(parent)Mark">
-                    <Dimensions x="20" y="20" />
-                    <Anchor point="LEFT" offsetX="4" />
-                    <!-- <Controls>
-                        <Texture name="$(parent)Frame" textureFile="/esoui/art/achievements/achievement_character_icon_frame.dds">
-                            <AnchorFill />
-                        </Texture>
-                    </Controls> -->
-                </Texture>
-                <Label name="$(parent)DisplayName" inherits="IMP_STATS_Listing_Cell IMP_STATS_PlayersSummary_Column2">
-                    <Anchor point="LEFT" relativeTo="$(parent)Mark" relativePoint="RIGHT" offsetX="8" />
-                </Label>
-                <Label name="$(parent)Index" inherits="IMP_STATS_Listing_Cell IMP_STATS_PlayersSummary_Column1">
-                    <Anchor point="LEFT" relativeTo="$(parent)DisplayName" relativePoint="RIGHT" offsetX="16" />
-                    <!-- <Controls>
-                        <Texture name="$(parent)BG" color="001111" alpha="0"><AnchorFill /></Texture>
-                    </Controls> -->
-                </Label>
-                <Label name="$(parent)KA" inherits="IMP_STATS_Listing_Cell IMP_STATS_PlayersSummary_Column3">
-                    <Anchor point="LEFT" relativeTo="$(parent)Index" relativePoint="RIGHT" />
-                </Label>
-                <Label name="$(parent)Damage" inherits="IMP_STATS_Listing_Cell IMP_STATS_PlayersSummary_Column4">
-                    <Anchor point="LEFT" relativeTo="$(parent)KA" relativePoint="RIGHT" />
-                </Label>
-                <Label name="$(parent)Healing" inherits="IMP_STATS_Listing_Cell IMP_STATS_PlayersSummary_Column5">
-                    <Anchor point="LEFT" relativeTo="$(parent)Damage" relativePoint="RIGHT" />
-                </Label>
-            </Controls>
-        </Label>
-
 		<TopLevelControl name="IMP_STATS_PlayersSummary" resizeToFitDescendents="true" mouseEnabled="true" movable="true" hidden="true">
 			<Dimensions x="460" />
 			<Anchor point="TOPRIGHT" relativeTo="ZO_SharedRightBackground" relativePoint="TOPLEFT" offsetX="-16" />
@@ -66,9 +16,8 @@
                         end
                     </OnMouseDown>
                 </Texture> -->
-				<!-- <Texture name="$(parent)BG" color="001111" alpha="0"><AnchorFill /></Texture> -->
 				<Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" excludeFromResizeToFitExtents="true"></Backdrop>
-                <Label name="$(parent)PerformanceMeter" font="ZoFontGame" color="777777AA" text="Update: - ms" mouseEnabled="true">
+                <Label name="$(parent)PerformanceMeter" font="ZoFontGame" color="777777AA" text="Update: - ms" mouseEnabled="true" hidden="true">
                     <Anchor point="TOPLEFT" />
                     <OnMouseEnter>
                         ZO_Tooltips_ShowTextTooltip(self, TOP, 'How fast list updates. Let me know if it is too high (>500ms). Will hide later.')
@@ -130,42 +79,9 @@
 					<Anchor point="TOPLEFT" relativeTo="$(parent)Divider" relativePoint="BOTTOMLEFT" />
 					<Anchor point="BOTTOMRIGHT" />
 					<Controls>
-						<!-- <Texture name="$(parent)BG" color="00FF00" excludeFromResizeToFitExtents="true"><AnchorFill /></Texture> -->
-						<Control name="$(parent)Headers" excludeFromResizeToFitExtents="true">
-							<Dimensions y="32" />
-							<Anchor point="TOPLEFT" />
-							<Controls>
-								<Label name="$(parent)Mark" inherits="IMP_STATS_Listing_Header" horizontalAlignment="CENTER" mouseEnabled="true" text="!">
-                                    <Dimensions x="20" y="32" />
-                                    <Anchor point="LEFT" offsetX="4" />
-                                </Label>
-                                <Label name="$(parent)DisplayName" inherits="IMP_STATS_Listing_Header IMP_STATS_PlayersSummary_Column2" mouseEnabled="true" text="Display Name">
-                                    <Anchor point="LEFT" relativeTo="$(parent)Mark" relativePoint="RIGHT" offsetX="8" />
-                                </Label>
-                                <Label name="$(parent)NumMatches" inherits="IMP_STATS_Listing_Header IMP_STATS_PlayersSummary_Column1" mouseEnabled="true" text="#">
-                                    <Anchor point="LEFT" relativeTo="$(parent)DisplayName" relativePoint="RIGHT" offsetX="16" />
-                                </Label>
-                                <Label name="$(parent)KA" inherits="IMP_STATS_Listing_Header IMP_STATS_PlayersSummary_Column3" mouseEnabled="true" text="K+A">
-                                    <Anchor point="LEFT" relativeTo="$(parent)NumMatches" relativePoint="RIGHT" />
-                                </Label>
-                                <Label name="$(parent)Damage" inherits="IMP_STATS_Listing_Header IMP_STATS_PlayersSummary_Column4" mouseEnabled="true" text="Dmg">
-                                    <Anchor point="LEFT" relativeTo="$(parent)KA" relativePoint="RIGHT" />
-                                </Label>
-                                <Label name="$(parent)Healing" inherits="IMP_STATS_Listing_Header IMP_STATS_PlayersSummary_Column5" mouseEnabled="true" text="Heal">
-                                    <Anchor point="LEFT" relativeTo="$(parent)Damage" relativePoint="RIGHT" />
-                                </Label>
-                                <Texture name="$(parent)SortingOrderIcon" hidden="true">
-                                    <Dimensions x="16" y="12" />
-                                </Texture>
-							</Controls>
-						</Control>
-						<Control name="$(parent)ScrollableList" inherits="ZO_ScrollList">
-							<Anchor point="TOPLEFT" relativeTo="$(parent)Headers" relativePoint="BOTTOMLEFT" offsetY="6" />
-							<Anchor point="BOTTOMRIGHT" />
-							<Controls>
-								<!-- <Backdrop name="$(parent)BG" inherits="ZO_DefaultBackdrop" edgeColor="0000FF" centerColor="00FF00" /> -->
-							</Controls>
-						</Control>
+                        <Control name="$(parent)Table">
+                            <AnchorFill />
+                        </Control>
 					</Controls>
 				</Control>
 			</Controls>
