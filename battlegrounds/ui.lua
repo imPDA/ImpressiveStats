@@ -342,12 +342,12 @@ function addon:_createTable()
 
     local BuildButton = Button(
         buildButtonStyle,
-        function(ctrl, state, locked)
-            if state == BSTATE_DISABLED then
+        function(ctrl, exists)
+            if not exists then
                 ctrl:SetHidden(true)
             else
                 ctrl:SetHidden(false)
-                ctrl:SetState(BSTATE_NORMAL, locked)
+                ctrl:SetState(BSTATE_NORMAL)
             end
         end,
         function(ctrl)
@@ -372,7 +372,7 @@ function addon:_createTable()
 		Column('Deaths',       60,  0, TC.Center,  'Deaths', TH.Center,     SORTABLE),
 		Column('Assists',      60,  0, TC.Center, 'Assists', TH.Center,     SORTABLE),
         Column('DamageDone',   90,  0, FC.Center,  'Damage', TH.Center,     SORTABLE),
-		Column('HealignDone',  90,  0, FC.Center, 'Healing', TH.Center,     SORTABLE),
+		Column('HealingDone',  90,  0, FC.Center, 'Healing', TH.Center,     SORTABLE),
         Column('DamageTaken',  90,  0, FC.Center,   'Taken', TH.Center,     SORTABLE),
         Column('Build', 	   32,  0, BuildButton,	    nil, TH.Center, not SORTABLE),
     }
@@ -427,9 +427,8 @@ function addon:_createTable()
 	end
     myTable:AddDataType(1, columns, 32, postCreateCallback, postSetupCallback)
 
-	myTable.defaultSortingCriteria = {
-		{columnIndex = 1, order = ZO_SORT_ORDER_DOWN},
-	}
+
+	myTable:SetDefaultSortingCriteria(1, ZO_SORT_ORDER_DOWN)
 
 	local REPLACE = true
     local scrollControl = myTable:Create('Listing', self.tlc, REPLACE)
@@ -600,7 +599,7 @@ function addon:UpdateScrollList()
             summary.damageDone,
             summary.healingDone,
             summary.damageTaken,
-            self.matches[i].superstar ~= nil and BSTATE_NORMAL or BSTATE_DISABLED,
+            self.matches[i].superstar ~= nil,
             summary.result
         }
     end

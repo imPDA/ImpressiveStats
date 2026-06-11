@@ -395,10 +395,11 @@ function addon:_initTable()
 
     myTable:AddDataType(1, columns, 32, postCreateCallback, postSetupCallback)
 
-	myTable.defaultSortingCriteria = {
-		{columnIndex = 1, order = ZO_SORT_ORDER_DOWN},
-		{columnIndex = 2, order = ZO_SORT_ORDER_UP},
-	}
+    myTable:SetMulticolumnSortingEnabled(true)
+	myTable:SetDefaultSortingCriteria(
+		1, ZO_SORT_ORDER_DOWN,
+		2, ZO_SORT_ORDER_UP
+    )
 
 	local REPLACE = true
     local scrollControl = myTable:Create('Table', self.body, REPLACE)

@@ -302,12 +302,12 @@ function addon:_createTable()
 
     local BuildButton = Button(
         buildButtonStyle,
-        function(ctrl, state, locked)
-            if state == BSTATE_DISABLED then
+        function(ctrl, exists)
+            if not exists then
                 ctrl:SetHidden(true)
             else
                 ctrl:SetHidden(false)
-                ctrl:SetState(BSTATE_NORMAL, locked)
+                ctrl:SetState(BSTATE_NORMAL)
             end
         end,
         function(ctrl)
@@ -335,7 +335,7 @@ function addon:_createTable()
 		Column('OppName',  	  170,  4, TC.Left,   'Opponent', THU.Left,   not SORTABLE),
         Column('DamageDone',   70,  0, FC.Center,     'Done', THU.Center,     SORTABLE),
         Column('Taken',        70,  0, FC.Center,    'Taken', THU.Center,     SORTABLE),
-		Column('HealignDone',  70,  0, FC.Center,     'Heal', THU.Center,     SORTABLE),
+		Column('HealingDone',  70,  0, FC.Center,     'Heal', THU.Center,     SORTABLE),
         Column('Shielded',     70,  0, FC.Center,   'Shield', THU.Center,     SORTABLE),
         Column('Build', 	   32,  0, BuildButton, 	 nil, THU.Center, not SORTABLE),
     }

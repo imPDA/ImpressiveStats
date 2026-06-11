@@ -9,7 +9,7 @@ local function Close(timems1, timems2, diff)
     if timems1 == nil or timems2 == nil then return error('Time cant be nil') end
 
     diff = diff or 1000
-    Log('Diff: %d', math.abs(timems1 - timems2))
+    Log('Diff: %d, max: %d', math.abs(timems1 - timems2), diff)
     if math.abs(timems1 - timems2) < diff then return true end
 end
 

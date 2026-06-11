@@ -1,10 +1,14 @@
+1.5.3
+- Bugfixes
+! Install newer version of LibDataPacker for class mastery support
+
 1.5.2
-- All tables reworked, new it requires 1 new library. All tables got multicolumn sorting - press on 2 or more columns to see how it works. 2 clicks on the same column changes sorting direction, 3 clicks - removes soting from this column.
-- Reworked match results table to work with new table lib, now can sort by team + any stat (score/damage/kills/etc) to compare players inside the same team, or sort only by stat to compare players from both teams together.
+- All tables reworked, now addon requires 1 new library. All tables got multicolumn sorting - press on 2 or more columns to see how it works. 2 clicks on the same column changes sorting direction, 3 clicks - removes sorting from this column.
+- Reworked match results table to work with new table lib, now you can sort by different columns, e.x. by team + any stat (score/damage/kills/etc) to compare players inside the same team, or sort only by stat to compare players from both teams together.
 BATTLEGROUNDS
-- Added "performance meter" (cup on top part of tab) - it shows how you performance in comparison with others, 1 means you have average stats, 2 means 2 times better (2 times more dmg than others in averaage for example), 0.5 means 0.5 times worse (0.5 damage than others in average).
+- Added "performance meter" (cup on top part of tab) - it shows how your performance compares with others, 1 means you have average stats, 2 means 2 times better (2 times more dmg than others on average for example), 0.5 means 0.5 times worse (0.5 times the damage of others on average).
 DUELS
-- You can now search for weird character name using default english alphabet only (a-z), e.x. instead of æ or Æ type ae, instead of á type a, etc.
+- You can now search for weird character name using default english alphabet only (a-z), e.g. instead of Æ or æ type ae, instead of ā type a, etc.
 
 1.5.1
 BATTLEGROUNDS

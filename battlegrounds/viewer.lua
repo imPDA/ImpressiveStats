@@ -81,7 +81,7 @@ function ImperessiveStatsViewer:_initTable()
 		Column('Deaths',       50,  0, TC.Center,	    'D', THU.Center, SORTABLE),
 		Column('Assists',      50,  0, TC.Center,	    'A', THU.Center, SORTABLE),
 		Column('DamageDone',  100,  0, FC.Center,  'Damage', THU.Center, SORTABLE),
-		Column('HealignDone', 100,  0, FC.Center, 'Healing', THU.Center, SORTABLE),
+		Column('HealingDone', 100,  0, FC.Center, 'Healing', THU.Center, SORTABLE),
     }
 
 	local WITH_HEADERS = true
@@ -108,10 +108,11 @@ function ImperessiveStatsViewer:_initTable()
 	end
     myTable:AddDataType(1, columns, 32, postCreateCallback, postSetupCallback)
 
-	myTable.defaultSortingCriteria = {
-		{columnIndex = 2, order = ZO_SORT_ORDER_UP},
-		{columnIndex = 5, order = ZO_SORT_ORDER_DOWN},
-	}
+	myTable:SetMulticolumnSortingEnabled(true)
+	myTable:SetDefaultSortingCriteria(
+		2, ZO_SORT_ORDER_UP,
+		5, ZO_SORT_ORDER_DOWN
+	)
 
 	local REPLACE = true
     local scrollControl = myTable:Create('Table', self.body, REPLACE)
