@@ -1,3 +1,7 @@
+1.5.4
+- Custom error notifications for BGs and duels (recent update of addon and libraries should fix some known issues, but I sometimes BGs and duels can be not saved without producing any error, and you can stay unalerted, especially with addons hiding UI errors, so this can help to be aware of these errors)
+I tried to make it as interfering as possible, but I will be glad to hear a comment if it needs further adjustment.
+
 1.5.3
 - Bugfixes
 ! Install newer version of LibDataPacker for class mastery support

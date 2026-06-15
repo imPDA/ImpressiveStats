@@ -1,7 +1,7 @@
 local addon = {}
 addon.name = 'ImpressiveStats'
 addon.displayName = '|c7c42f2Imp|ceeeeee-ressive Stats|r'
-addon.version = '1.5.3'
+addon.version = '1.5.4'
 
 local Log = IMP_STATS_Logger('IMP_STATS_MAIN')
 
@@ -26,6 +26,11 @@ local DEFAULTS = {
 		leaderboard = false,
 		-- selectedCharacters = {},
 	},
+	errors = {
+		enabled = true,
+		allowCSA = false,
+		allowAlerts = true,
+	}
 }
 
 local CHARACTER_DEFAULTS = {
@@ -110,6 +115,22 @@ function addon:OnLoad()
 	end
 
 	if PP then MakeItPerfect() end
+
+	-- ------------------------------------------------------------------------
+
+	IMP_STATS_SHARED.Errors:Initialize(self.sv.errors)
+
+	--[[
+	IMP_STATS_SHARED.Errors:AddError('Test', 'Test message 1', 'Test traceback 1')
+	IMP_STATS_SHARED.Errors:AddError('Test', 'Test message 2', 'Test traceback 2')
+	IMP_STATS_SHARED.Errors:AddError('Test', 'Test message 3', 'Test traceback 3')
+	--]]
+
+	if self.sv.errors.enabled then
+		IMP_STATS_SHARED.Notifications.RegisterNotifications()
+	end
+
+	-- ------------------------------------------------------------------------
 
 	IMP_STATS_InitializeSettings(self)
 

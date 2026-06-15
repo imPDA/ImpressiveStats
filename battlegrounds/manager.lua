@@ -485,7 +485,13 @@ function MatchManager:FinalizeCurrentMatch()
     FinalizeMatch(self.currentMatch)
 
     if self.sv.saveBuilds then
-        self.currentMatch.superstar = LibDataPacker.Extra.Build.GetPackedLocalPlayerShortBuild()
+        local success, result = pcall(LibDataPacker.Extra.Build.GetPackedLocalPlayerShortBuild)
+        if success then
+            self.currentMatch.superstar = result
+        else
+            local message = ('%s Build for BG was not saved'):format(os.date("!%Y-%m-%d %H:%M:%SZ"))
+            IMP_STATS_SHARED.Errors:AddError('MatchManager', message, result)
+        end
     end
 end
 
@@ -495,6 +501,8 @@ end
 
 function MatchManager:SaveMatch()
     self:CheckCurrentMatch()
+
+    local saved = false
 
     if self.currentMatch.wasPlayed then
         self.currentMatch.wasPlayed = nil  -- discard as no longer needed
@@ -522,6 +530,7 @@ function MatchManager:SaveMatch()
         if success then
             if type(self.savedMatches[index]) ~= 'string' or self.savedMatches[index] ~= result then
                 self.savedMatches[index+1] = result
+                saved = true
                 Log('Match saved as #%d (and packed successfully)', index)
             else
                 Log('Match was not saved because it is similar to previous, most likely duplication')
@@ -530,13 +539,22 @@ function MatchManager:SaveMatch()
             if type(self.savedMatches[index]) ~= 'table' or not isSameMatches(self.savedMatches[index], self.currentMatch) then
                 self.savedMatches[index+1] = {}
                 ZO_DeepTableCopy(self.currentMatch, self.savedMatches[index+1])
+                saved = true
                 Log('Match saved as #%d (but packing failed: %s)', index, result)
+
+                local message = ('%s BG #%d was not packed'):format(os.date("!%Y-%m-%d %H:%M:%SZ"), index)
+                IMP_STATS_SHARED.Errors:AddError('MatchManager', message, result)
             else
                 Log('Match was not saved because it is similar to previous, most likely duplication')
             end
         end
     else
         Log('Match was not played, skipping saving')
+    end
+
+    if not saved then
+        local message = ('%s Previous BG was not saved'):format(os.date("!%Y-%m-%d %H:%M:%SZ"))
+        IMP_STATS_SHARED.Errors:AddError('MatchManager', message)
     end
 
     -- TODO: clear via ZO_ClearTable etc.?

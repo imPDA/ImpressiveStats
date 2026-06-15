@@ -14,7 +14,7 @@ local function Close(timems1, timems2, diff)
 end
 
 local function IfFightBelongsToDuel(fight, duel)
-    return Close(fight.combatstart, duel.duelStart, 3000)  -- Close(lastDuel.duelEnd, fight.combatend)
+    return Close(fight.combatstart, duel.duelStart, 6000)  -- Close(lastDuel.duelEnd, fight.combatend)
 end
 
 --#region IMP STATS DUEL
@@ -58,13 +58,21 @@ function Duel:AddPlayerData(playerData, saveBuild)
 
     if saveBuild then
         Log('Adding build')
-        self.player.build = LibDataPacker.Extra.Build.GetPackedLocalPlayerShortBuild()
+
+        local success, result = pcall(LibDataPacker.Extra.Build.GetPackedLocalPlayerShortBuild)
+        if success then
+            self.player.build = result
+        else
+            local message = ('%s Build for duel was not saved!'):format(os.date("!%Y-%m-%d %H:%M:%SZ"))
+            IMP_STATS_SHARED.Errors:AddError('DuelManager', message, result)
+        end
     end
 end
 --#endregion
 
 --#region IMP STATS DUELS
 function addon:TryToSaveCurrentDuel()
+    Log('Trying to save current duel, result added: %s, fightDataAdded: %s', tostring(self.resultAdded), tostring(self.fightDataAdded))
     if self.resultAdded and self.fightDataAdded then
         self.duels[#self.duels+1] = self.currentDuel
         self.currentDuel = nil
@@ -79,18 +87,31 @@ end
 function addon:OnFightSummary(fight)
     Log('Fight summary available')
 
-    LibCombat:UnregisterCallbackType(LIBCOMBAT_EVENT_FIGHTSUMMARY, _, addon.name)
-
     if IfFightBelongsToDuel(fight, self.currentDuel) then
+        LibCombat:UnregisterCallbackType(LIBCOMBAT_EVENT_FIGHTSUMMARY, _, addon.name)
         self.currentDuel:AddFightData(fight)
         self.fightDataAdded = true
-    end
+        Log('Fight data added')
+        self:TryToSaveCurrentDuel()
+    else
+        Log('Fight does not belong to duel, big diference in start times')
 
-    self:TryToSaveCurrentDuel()
+        local message = ('%s Big difference between duel start times (%d), duel most likely will not be saved'):format(os.date("!%Y-%m-%d %H:%M:%SZ"))
+        IMP_STATS_SHARED.Errors:AddError('DuelManager', message)
+    end
 end
 
 function addon:OnDuelStarted()
-    Log('Duel started')
+    Log('Duel started at %.6f', GetGameTimeSeconds())
+
+    if self.current then
+        LibCombat:UnregisterCallbackType(LIBCOMBAT_EVENT_FIGHTSUMMARY, _, addon.name)
+        self.resultAdded = nil
+        self.fightDataAdded = nil
+
+        local message = ('%s Looks like previous duel was not saved!'):format(os.date("!%Y-%m-%d %H:%M:%SZ"))
+        IMP_STATS_SHARED.Errors:AddError('DuelManager', message)
+    end
 
     self.currentDuel = Duel:New()
     LibCombat:RegisterCallbackType(LIBCOMBAT_EVENT_FIGHTSUMMARY, function(_, ...) self:OnFightSummary(...) end, addon.name)
@@ -100,6 +121,7 @@ function addon:OnDuelFinished(duelResult, wasLocalPlayersResult, opponentCharact
     Log('Duel finished, saving build enabled: %s', tostring(self.sv.saveBuilds))
 
     self.currentDuel:AddPlayerData(self.playerData, self.sv.saveBuilds)
+    Log('Player data added')
 
     self.currentDuel:AddOpponentData({
         characterName = opponentCharacterName,
@@ -109,9 +131,11 @@ function addon:OnDuelFinished(duelResult, wasLocalPlayersResult, opponentCharact
         classId = opponentClassId,
         raceId = opponentRaceId,
     })
+    Log('Opponent data added')
 
     self.currentDuel:AddResult(duelResult, wasLocalPlayersResult)
     self.resultAdded = true
+    Log('Result added')
 
     self:TryToSaveCurrentDuel()
 end

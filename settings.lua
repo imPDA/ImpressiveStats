@@ -56,6 +56,32 @@ function settings:Initialize(addon)
 
     local panel = LAM:RegisterAddonPanel(settingsName, panelData)
 
+    local errorsSV = sv.errors
+    local err = {}  -- errors module
+    err[#err+1] = {
+        type = 'checkbox',
+        name = 'Enable errors module',
+        getFunc = function() return errorsSV.enabled end,
+        setFunc = function(value) errorsSV.enabled = value end,
+        requiresReload = true,
+    }
+
+    err[#err+1] = {
+        type = 'checkbox',
+        name = 'Allow center screen announcements',
+        tooltip = 'Alert in the middle of the screen',
+        getFunc = function() return errorsSV.allowCSA end,
+        setFunc = function(value) errorsSV.allowCSA = value end,
+    }
+
+    err[#err+1] = {
+        type = 'checkbox',
+        name = 'Allow alerts',
+        tooltip = 'Alert in the topright corner',
+        getFunc = function() return errorsSV.allowAlerts end,
+        setFunc = function(value) errorsSV.allowAlerts = value end,
+    }
+
     local bm = {}  -- battlegroundsModule
 
     bm[#bm+1] = {
@@ -238,6 +264,12 @@ function settings:Initialize(addon)
     }
 
     local optionsData = {
+        {
+            type = 'submenu',
+            name = 'Errors module',
+            tooltip = 'Everything about error notifications',
+            controls = err,
+        },
         {
             type = 'submenu',
             name = 'Battlegrounds module',
