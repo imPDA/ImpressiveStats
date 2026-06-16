@@ -96,7 +96,7 @@ function addon:OnFightSummary(fight)
     else
         Log('Fight does not belong to duel, big diference in start times')
 
-        local message = ('%s Big difference between duel start times (%d), duel most likely will not be saved'):format(os.date("!%Y-%m-%d %H:%M:%SZ"))
+        local message = ('%s Big difference between start times'):format(os.date("!%Y-%m-%d %H:%M:%SZ"))
         IMP_STATS_SHARED.Errors:AddError('DuelManager', message)
     end
 end
