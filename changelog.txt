@@ -1,3 +1,6 @@
+1.5.7
+- Added new match types - 6x6x6 (solo and group) and 9x9 (solo and group). Old games will be proceeded on first load to add these new types! All matches you played since U51 will appear after repacking, if not - please let me know.
+
 1.5.6
 - Bugfixes. Now battleground matches with invalid result will be coloured blue (extra rare event tho)
 
